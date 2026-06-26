@@ -199,6 +199,11 @@ body {
 
 .squad-name.draggable {
     cursor: grab;
+    /* Allow vertical scrolling of the list; long-press starts a drag. */
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .squad-name.draggable:active {
@@ -485,10 +490,25 @@ body {
     cursor: grab;
     user-select: none;
     z-index: 1;
+    /* Token owns the gesture so touch-drag works in any direction. */
+    touch-action: none;
 }
 
 .token:active {
     cursor: grabbing;
+}
+
+/* Floating drag preview that follows the pointer (mouse + touch). */
+.drag-ghost {
+    position: fixed;
+    transform: translate(-50%, -50%) scale(1.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.92;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
 }
 
 .jersey {

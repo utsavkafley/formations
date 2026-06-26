@@ -168,6 +168,8 @@ export default function App() {
   const [dragId, setDragId] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [hover, setHover] = useState(null); // 'A' | 'B' | 'bench'
+  const [ghost, setGhost] = useState(null); // floating drag preview { name, color, x, y }
+  const pendingRef = useRef(null); // in-flight pointer drag data
   const [editId, setEditId] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
@@ -277,13 +279,12 @@ export default function App() {
     setTeams((t) => ({ ...t, [team]: { ...t[team], [field]: value } }));
   }
 
-  // Drop the dragged player onto a team's half at (x,y), snapping to align
-  // with teammates already placed. Moving to a new zone clears a manual
-  // override so the label returns to auto for the new zone.
-  function dropOnField(team, x, y) {
-    if (dragId == null) return;
+  // Place a player onto a team's half at (x,y), snapping to align with
+  // teammates already placed. Moving to a new zone clears a manual override so
+  // the label returns to auto for the new zone.
+  function placeOnField(id, team, x, y) {
     setPlayers((prev) => {
-      const others = prev.filter((p) => p.id !== dragId && p.team === team);
+      const others = prev.filter((p) => p.id !== id && p.team === team);
       const sx = snap(
         x,
         others.map((p) => p.x),
@@ -293,21 +294,18 @@ export default function App() {
         others.map((p) => p.y),
       );
       return prev.map((p) => {
-        if (p.id !== dragId) return p;
+        if (p.id !== id) return p;
         const movedZone =
           p.team !== team || autoTag(p.x, p.y) !== autoTag(sx, sy);
         return { ...p, team, x: sx, y: sy, tag: movedZone ? null : p.tag };
       });
     });
-    endDrag();
   }
 
-  function dropOnBench() {
-    if (dragId == null) return;
+  function benchPlayer(id) {
     setPlayers((p) =>
-      p.map((pl) => (pl.id === dragId ? { ...pl, team: null, tag: null } : pl)),
+      p.map((pl) => (pl.id === id ? { ...pl, team: null, tag: null } : pl)),
     );
-    endDrag();
   }
 
   function setOverride(id, tag) {
@@ -343,15 +341,108 @@ export default function App() {
     setPlayers((p) => p.map((pl) => ({ ...pl, team: null, tag: null })));
   }
 
-  function startDrag(id) {
-    setDragId(id);
-    setDragging(true);
-  }
   function endDrag() {
     setDragId(null);
     setDragging(false);
     setHover(null);
+    setGhost(null);
   }
+
+  // --- Unified pointer drag (mouse + touch) ---------------------------------
+  // A press starts a "pending" drag. On the scrollable squad list a touch must
+  // long-press to begin (so quick swipes still scroll); elsewhere a small move
+  // threshold starts it. Once dragging, a floating ghost follows the pointer
+  // and the drop target is found with elementFromPoint.
+  function startPress(e, info) {
+    if (e.button != null && e.button > 0) return; // ignore non-primary mouse
+    const longPress = e.pointerType === "touch" && info.source === "bench";
+    pendingRef.current = {
+      ...info,
+      startX: e.clientX,
+      startY: e.clientY,
+      pointerType: e.pointerType,
+      started: false,
+      timer: longPress
+        ? setTimeout(() => activateDrag(e.clientX, e.clientY), 220)
+        : null,
+    };
+  }
+
+  function activateDrag(cx, cy) {
+    const p = pendingRef.current;
+    if (!p || p.started) return;
+    p.started = true;
+    setDragId(p.id);
+    setDragging(true);
+    setGhost({ name: p.name, color: p.color, x: cx, y: cy });
+    updateHover(cx, cy);
+  }
+
+  function updateHover(cx, cy) {
+    const el = document.elementFromPoint(cx, cy);
+    if (el && el.closest(".field")) setHover(el.closest(".field").dataset.team);
+    else if (el && el.closest(".squad-list")) setHover("bench");
+    else setHover(null);
+  }
+
+  function dropAt(cx, cy) {
+    const p = pendingRef.current;
+    if (!p) return;
+    const el = document.elementFromPoint(cx, cy);
+    const field = el && el.closest(".field");
+    if (field) {
+      const rect = field.getBoundingClientRect();
+      const x = clamp((cx - rect.left) / rect.width, 0.05, 0.95);
+      const y = clamp((cy - rect.top) / rect.height, 0.04, 0.96);
+      placeOnField(p.id, field.dataset.team, x, y);
+    } else if (el && el.closest(".squad-list")) {
+      benchPlayer(p.id);
+    }
+  }
+
+  // Window-level move/up listeners; pendingRef keeps per-drag data so these
+  // closures stay valid for the component's lifetime.
+  useEffect(() => {
+    function move(e) {
+      const p = pendingRef.current;
+      if (!p) return;
+      const dist = Math.hypot(e.clientX - p.startX, e.clientY - p.startY);
+      if (!p.started) {
+        if (p.pointerType === "touch" && p.source === "bench") {
+          if (dist > 10) {
+            // moved before long-press fired → treat as a scroll, cancel
+            clearTimeout(p.timer);
+            pendingRef.current = null;
+          }
+          return;
+        }
+        if (dist > 6) activateDrag(e.clientX, e.clientY);
+        return;
+      }
+      e.preventDefault();
+      setGhost((g) => (g ? { ...g, x: e.clientX, y: e.clientY } : g));
+      updateHover(e.clientX, e.clientY);
+    }
+    function up(e) {
+      const p = pendingRef.current;
+      if (!p) return;
+      if (p.timer) clearTimeout(p.timer);
+      if (p.started) {
+        dropAt(e.clientX, e.clientY);
+        endDrag();
+      }
+      pendingRef.current = null;
+    }
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function exportImage() {
     if (!pitchRef.current) return;
@@ -425,15 +516,7 @@ export default function App() {
           <span className="col-pos">Position</span>
         </div>
 
-        <div
-          className={`squad-list ${hover === "bench" ? "drop-hover" : ""}`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setHover("bench");
-          }}
-          onDragLeave={() => setHover((h) => (h === "bench" ? null : h))}
-          onDrop={dropOnBench}
-        >
+        <div className={`squad-list ${hover === "bench" ? "drop-hover" : ""}`}>
           {squad.map((m) => {
             const coming = isComing(m.id);
             const player = players.find((p) => p.id === m.id);
@@ -452,12 +535,24 @@ export default function App() {
                   className={`squad-name ${
                     coming && !placed ? "draggable" : ""
                   } ${placed ? "on-field" : ""}`}
-                  draggable={coming && !placed}
-                  onDragStart={
-                    coming && !placed ? () => startDrag(m.id) : undefined
+                  onPointerDown={
+                    coming && !placed
+                      ? (e) =>
+                          startPress(e, {
+                            id: m.id,
+                            name: m.name,
+                            color: "#8b97a6",
+                            source: "bench",
+                          })
+                      : undefined
                   }
-                  onDragEnd={endDrag}
-                  title={placed ? "On field" : undefined}
+                  title={
+                    placed
+                      ? "On field"
+                      : coming
+                        ? "Drag onto a team (press & hold on touch)"
+                        : undefined
+                  }
                 >
                   {placed && <span className="on-dot" />}
                   {m.name}
@@ -492,7 +587,7 @@ export default function App() {
         <p className="hint">
           Tick who's here, set each player's usual area and ★ for the standouts,
           then hit <b>Balance teams</b> for two fair sides — or drag people on
-          manually. Drop back here to bench.
+          manually (press &amp; hold on touch). Drop back here to bench.
         </p>
       </aside>
 
@@ -563,10 +658,7 @@ export default function App() {
               dragging={dragging}
               dragId={dragId}
               isHover={hover === team}
-              setHover={setHover}
-              onDropField={dropOnField}
-              onDragStart={startDrag}
-              onDragEnd={endDrag}
+              onTokenPress={startPress}
               editId={editId}
               setEditId={setEditId}
               onOverride={setOverride}
@@ -574,6 +666,19 @@ export default function App() {
           ))}
         </div>
       </main>
+
+      {ghost && (
+        <div
+          className="drag-ghost"
+          style={{ left: ghost.x, top: ghost.y }}
+          aria-hidden="true"
+        >
+          <div className="jersey">
+            <Jersey color={ghost.color} />
+          </div>
+          <span className="token-name">{ghost.name}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -586,26 +691,15 @@ function Pitch({
   dragging,
   dragId,
   isHover,
-  setHover,
-  onDropField,
-  onDragStart,
-  onDragEnd,
+  onTokenPress,
   editId,
   setEditId,
   onOverride,
 }) {
   const text = contrastText(meta.color);
-  const fieldRef = useRef(null);
   const placed = players.filter((p) => p.team === team);
   // Alignment guides reference teammates other than the one being dragged.
   const guides = placed.filter((p) => p.id !== dragId);
-
-  function coords(e) {
-    const rect = fieldRef.current.getBoundingClientRect();
-    const x = clamp((e.clientX - rect.left) / rect.width, 0.05, 0.95);
-    const y = clamp((e.clientY - rect.top) / rect.height, 0.04, 0.96);
-    return { x, y };
-  }
 
   return (
     <div className="pitch">
@@ -615,19 +709,10 @@ function Pitch({
         <span className="muted">{count} players</span>
       </div>
       <div
-        ref={fieldRef}
+        data-team={team}
         className={`field ${dragging ? "dragging" : ""} ${
           isHover ? "field-hover" : ""
         }`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setHover(team);
-        }}
-        onDragLeave={() => setHover((h) => (h === team ? null : h))}
-        onDrop={(e) => {
-          const { x, y } = coords(e);
-          onDropField(team, x, y);
-        }}
       >
         <PitchMarkings />
         {dragging && (
@@ -657,8 +742,14 @@ function Pitch({
             color={meta.color}
             text={text}
             editing={editId === p.id}
-            onDragStart={() => onDragStart(p.id)}
-            onDragEnd={onDragEnd}
+            onPointerDown={(e) =>
+              onTokenPress(e, {
+                id: p.id,
+                name: p.name,
+                color: meta.color,
+                source: "field",
+              })
+            }
             onClick={() => setEditId(p.id)}
             onCommit={(t) => onOverride(p.id, t)}
           />
@@ -675,8 +766,7 @@ function PlayerToken({
   color,
   text,
   editing,
-  onDragStart,
-  onDragEnd,
+  onPointerDown,
   onClick,
   onCommit,
 }) {
@@ -684,9 +774,7 @@ function PlayerToken({
     <div
       className="token"
       style={{ left: `${player.x * 100}%`, top: `${player.y * 100}%` }}
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
+      onPointerDown={onPointerDown}
     >
       <div
         className={`jersey ${isOverride ? "override" : ""}`}
@@ -702,7 +790,7 @@ function PlayerToken({
             placeholder={tag}
             maxLength={4}
             onClick={(e) => e.stopPropagation()}
-            onDragStart={(e) => e.preventDefault()}
+            onPointerDown={(e) => e.stopPropagation()}
             onBlur={(e) => onCommit(e.target.value.trim().toUpperCase())}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.target.blur();

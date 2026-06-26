@@ -559,3 +559,78 @@ body {
 .exporting .guides {
     display: none;
 }
+
+/* ---------- Mobile / narrow screens ---------- */
+@media (max-width: 820px) {
+    /* Let the whole page scroll instead of the desktop split panes. */
+    html,
+    body,
+    #root {
+        height: auto;
+    }
+
+    .app {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+    }
+
+    .sidebar {
+        height: auto;
+        overflow: visible;
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+    }
+
+    /* Cap the squad list so the pitch isn't pushed far down; it scrolls. */
+    .squad-list {
+        max-height: 46vh;
+    }
+
+    .main {
+        overflow: visible;
+    }
+
+    .toolbar {
+        gap: 10px;
+        padding: 12px 14px;
+    }
+
+    .toolbar-actions {
+        margin-left: 0;
+        flex-wrap: wrap;
+    }
+
+    /* Stack the two pitches vertically. */
+    .pitch-wrap {
+        grid-template-columns: 1fr;
+        overflow: visible;
+        padding: 12px;
+        gap: 14px;
+    }
+
+    .field {
+        min-height: 480px;
+    }
+}
+
+/* Phones: tighten team controls so the toolbar doesn't overflow. */
+@media (max-width: 480px) {
+    .team-control {
+        flex: 1 1 100%;
+    }
+
+    .team-name {
+        flex: 1;
+        width: auto;
+    }
+
+    .toolbar-actions {
+        width: 100%;
+    }
+
+    .balance-btn {
+        flex: 1;
+    }
+}

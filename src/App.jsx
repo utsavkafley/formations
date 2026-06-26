@@ -18,6 +18,14 @@ const SQUAD_KEY = "formations.squad.v1";
 const SNAP = 0.03; // alignment snap threshold (fraction of pitch)
 let guestId = 1;
 
+const CORE_SQUAD = [
+  "Amir", "Deepen", "Kevin", "Pradin", "Rabin", "Yagya", "Utsav",
+  "Anukul", "Ashim", "Avinash", "Ayush", "Bijay", "Bishal", "Deeyas",
+  "Eakon", "Govin", "Govinda", "Mridul", "Nabin", "Nirbirodh", "Supreme",
+  "Raj", "Rishikesh", "Roshan", "Safal", "Sailesh", "Sajeeb", "Salik",
+  "Saman", "Sanjay", "Saroj", "Shobhit", "Sunil", "Suresh", "Vijaya",
+].map((name) => ({ id: `core-${name.toLowerCase()}`, name, core: true }));
+
 function contrastText(hex) {
   const h = hex.replace("#", "");
   const r = parseInt(h.slice(0, 2), 16);
@@ -80,18 +88,24 @@ export default function App() {
   const [savedNote, setSavedNote] = useState(false);
   const pitchRef = useRef(null);
 
-  // Load saved squad once.
+  // Load saved guests from localStorage and merge with hardcoded core squad.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(SQUAD_KEY);
-      if (raw) setSquad(JSON.parse(raw));
+      const parsed = raw ? JSON.parse(raw) : [];
+      // Filter out any stale core entries that may have been saved before
+      // the hardcoded squad was introduced.
+      const guests = parsed.filter((m) => !m.core);
+      setSquad([...CORE_SQUAD, ...guests]);
     } catch {
-      /* ignore */
+      setSquad(CORE_SQUAD);
     }
   }, []);
 
   function saveSquad() {
-    localStorage.setItem(SQUAD_KEY, JSON.stringify(squad));
+    // Only persist guests (non-core) — core squad is always in the code.
+    const guests = squad.filter((m) => !m.core);
+    localStorage.setItem(SQUAD_KEY, JSON.stringify(guests));
     setSavedNote(true);
     setTimeout(() => setSavedNote(false), 1800);
   }
@@ -101,8 +115,9 @@ export default function App() {
     const trimmed = name.trim();
     if (!trimmed) return;
     const id = `g${guestId++}-${Date.now()}`;
-    setSquad((s) => [...s, { id, name: trimmed }]);
-    // New members default to "coming today".
+    const guest = { id, name: trimmed, core: false };
+    setSquad((s) => [...s, guest]);
+    // Guests default to "coming today".
     setPlayers((p) => [
       ...p,
       { id, name: trimmed, team: null, x: 0.5, y: 0.5, tag: null },
@@ -111,6 +126,7 @@ export default function App() {
   }
 
   function removeSquadMember(id) {
+    // Core members can't be permanently removed, only unchecked.
     setSquad((s) => s.filter((m) => m.id !== id));
     setPlayers((p) => p.filter((pl) => pl.id !== id));
   }
@@ -214,17 +230,19 @@ export default function App() {
 
         <div className="squad-head">
           <span>Squad</span>
-          <button className="save-btn" onClick={saveSquad}>
-            {savedNote ? "✓ Saved" : "Save squad"}
-          </button>
+          {squad.some((m) => !m.core) && (
+            <button className="save-btn" onClick={saveSquad}>
+              {savedNote ? "✓ Saved" : "Save guests"}
+            </button>
+          )}
         </div>
 
         <form className="add-form" onSubmit={addSquadMember}>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Add player to squad…"
-            aria-label="Player name"
+            placeholder="Add guest player…"
+            aria-label="Guest player name"
           />
           <button type="submit">Add</button>
         </form>
@@ -243,12 +261,6 @@ export default function App() {
           onDragLeave={() => setHover((h) => (h === "bench" ? null : h))}
           onDrop={dropOnBench}
         >
-          {squad.length === 0 && (
-            <p className="empty">
-              Build your squad above. Save it once, then just tick who shows up
-              each day.
-            </p>
-          )}
           {squad.map((m) => {
             const coming = isComing(m.id);
             const player = players.find((p) => p.id === m.id);
@@ -274,21 +286,22 @@ export default function App() {
                   {m.name}
                 </span>
                 {placed && <span className="field-badge">on field</span>}
-                <button
-                  className="squad-x"
-                  title="Remove from squad"
-                  onClick={() => removeSquadMember(m.id)}
-                >
-                  ×
-                </button>
+                {!m.core && (
+                  <button
+                    className="squad-x"
+                    title="Remove guest"
+                    onClick={() => removeSquadMember(m.id)}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
         <p className="hint">
-          Drag a ticked player anywhere onto a team — labels set themselves from
-          the zone. Click a shirt to override its label. Drop a player back here
-          to bench them.
+          Tick who's here today, then drag them onto a team. Labels auto-set by
+          zone — click a shirt to override. Drop back here to bench.
         </p>
       </aside>
 

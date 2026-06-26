@@ -252,6 +252,27 @@ export default function App() {
     }
   }
 
+  // Tick everyone, or clear all if everyone is already in. Keeps existing
+  // placements for those already coming.
+  function toggleSelectAll() {
+    setPlayers((prev) => {
+      const allIn = squad.length > 0 && squad.every((m) => prev.some((p) => p.id === m.id));
+      if (allIn) return [];
+      const existing = new Map(prev.map((p) => [p.id, p]));
+      return squad.map(
+        (m) =>
+          existing.get(m.id) || {
+            id: m.id,
+            name: m.name,
+            team: null,
+            x: 0.5,
+            y: 0.5,
+            tag: null,
+          },
+      );
+    });
+  }
+
   function setTeamField(team, field, value) {
     setTeams((t) => ({ ...t, [team]: { ...t[team], [field]: value } }));
   }
@@ -356,6 +377,7 @@ export default function App() {
 
   const placedCount = (team) => players.filter((p) => p.team === team).length;
   const comingCount = players.length;
+  const allComing = squad.length > 0 && comingCount >= squad.length;
 
   return (
     <div className="app">
@@ -387,6 +409,17 @@ export default function App() {
         </div>
 
         <div className="squad-cols">
+          <input
+            type="checkbox"
+            className="select-all-box"
+            ref={(el) => {
+              if (el) el.indeterminate = comingCount > 0 && !allComing;
+            }}
+            checked={allComing}
+            onChange={toggleSelectAll}
+            aria-label="Select all players"
+            title={allComing ? "Clear all" : "Select all"}
+          />
           <span className="col-name">Name</span>
           <span className="col-form">Form</span>
           <span className="col-pos">Position</span>

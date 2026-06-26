@@ -135,11 +135,36 @@ body {
   background: rgba(61, 163, 93, 0.08);
 }
 
+.squad-cols {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 0 36px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.col-name {
+  flex: 1;
+}
+
+.col-form {
+  width: 22px;
+  text-align: center;
+}
+
+.col-pos {
+  width: 34px;
+  text-align: center;
+}
+
 .squad-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 5px 6px;
   border-radius: 8px;
 }
 
@@ -176,14 +201,57 @@ body {
   color: var(--muted);
 }
 
-.field-badge {
+.on-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.form-toggle {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+  width: 22px;
+}
+
+.form-toggle.great {
+  color: #f1b000;
+  text-shadow: 0 0 8px rgba(241, 176, 0, 0.5);
+}
+
+.area-chip {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent);
-  border: 1px solid var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.04em;
   border-radius: 5px;
-  padding: 1px 5px;
+  padding: 2px 5px;
+  width: 34px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.area-DEF {
+  border-color: #3da3c9;
+  color: #8fd3ec;
+}
+.area-MID {
+  border-color: #3da35d;
+  color: #8fe0a6;
+}
+.area-ATT {
+  border-color: #e0734d;
+  color: #f1ac8f;
 }
 
 .squad-x {
@@ -264,8 +332,52 @@ body {
   font-size: 14px;
 }
 
-.export-btn {
+.toolbar-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.balance-btn {
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #f1b000;
+  color: #2b2b2b;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.balance-btn:hover {
+  filter: brightness(1.06);
+}
+
+.balance-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ghost-btn {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ghost-btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text);
+}
+
+.ghost-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* ---------- Pitch ---------- */

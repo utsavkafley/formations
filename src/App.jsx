@@ -15,8 +15,15 @@ const TEAM_COLORS = [
 ];
 
 const SQUAD_KEY = "formations.squad.v1";
+const FORMS_KEY = "formations.forms.v1"; // { [id]: "great" } — Good is the baseline
+const AREAS_KEY = "formations.areas.v1"; // { [id]: "ATT" | "DEF" } — MID is the baseline
 const SNAP = 0.03; // alignment snap threshold (fraction of pitch)
 let guestId = 1;
+
+const AREAS = ["DEF", "MID", "ATT"];
+// Skill weight used by the team balancer. Everyone is "Good" by default; the
+// organizer flips standout players to "Great" on the day.
+const FORM_WEIGHT = { good: 1, great: 1.8 };
 
 const CORE_SQUAD = [
   "Amir", "Deepen", "Kevin", "Pradin", "Rabin", "Yagya", "Utsav",
@@ -65,10 +72,88 @@ function autoTag(x, y) {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+function readJSON(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) || {};
+  } catch {
+    return {};
+  }
+}
+
 // Snap a value to a nearby reference (for tidy rows/columns).
 function snap(val, refs) {
   for (const r of refs) if (Math.abs(val - r) < SNAP) return r;
   return val;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Split the coming players into two balanced teams. Primary goal: near-equal
+// total skill (Great weighted heavier). Secondary: spread DEF/MID/ATT evenly.
+// Ties are shuffled so re-running gives a different fair split.
+function balance(coming, getForm, getArea) {
+  const ordered = shuffle(coming).sort(
+    (a, b) => FORM_WEIGHT[getForm(b.id)] - FORM_WEIGHT[getForm(a.id)],
+  );
+  const team = { A: [], B: [] };
+  const weight = { A: 0, B: 0 };
+  const areaCount = { A: { DEF: 0, MID: 0, ATT: 0 }, B: { DEF: 0, MID: 0, ATT: 0 } };
+  for (const p of ordered) {
+    const area = getArea(p.id);
+    // Pick the lighter team; break ties by who needs this area, then size.
+    let pick;
+    if (weight.A !== weight.B) {
+      pick = weight.A < weight.B ? "A" : "B";
+    } else if (areaCount.A[area] !== areaCount.B[area]) {
+      pick = areaCount.A[area] < areaCount.B[area] ? "A" : "B";
+    } else {
+      pick = team.A.length <= team.B.length ? "A" : "B";
+    }
+    team[pick].push(p);
+    weight[pick] += FORM_WEIGHT[getForm(p.id)];
+    areaCount[pick][area] += 1;
+  }
+  return team;
+}
+
+// Lay a team's players onto its half by usual area, spreading each line out.
+// Returns a map id -> {x, y}. A keeper is assigned when the side has >= 5,
+// preferring a less-standout defender so the best players stay outfield.
+function layoutTeam(teamPlayers, getArea, getForm) {
+  const lines = { DEF: [], MID: [], ATT: [] };
+  teamPlayers.forEach((p) => lines[getArea(p.id)].push(p));
+
+  let gk = null;
+  if (teamPlayers.length >= 5) {
+    const pool = lines.DEF.length ? lines.DEF : lines.MID.length ? lines.MID : lines.ATT;
+    // Prefer a "Good" keeper over a "Great" one.
+    let gkIdx = 0;
+    pool.forEach((p, i) => {
+      if (FORM_WEIGHT[getForm(p.id)] < FORM_WEIGHT[getForm(pool[gkIdx].id)]) gkIdx = i;
+    });
+    gk = pool.splice(gkIdx, 1)[0];
+  }
+
+  const Y = { ATT: 0.18, MID: 0.42, DEF: 0.66, GK: 0.9 };
+  const pos = {};
+  const placeLine = (arr, y) => {
+    arr.forEach((p, i) => {
+      const x = arr.length === 1 ? 0.5 : 0.12 + (0.76 * i) / (arr.length - 1);
+      pos[p.id] = { x, y };
+    });
+  };
+  placeLine(lines.ATT, Y.ATT);
+  placeLine(lines.MID, Y.MID);
+  placeLine(lines.DEF, Y.DEF);
+  if (gk) pos[gk.id] = { x: 0.5, y: Y.GK };
+  return pos;
 }
 
 export default function App() {
@@ -86,6 +171,10 @@ export default function App() {
   const [editId, setEditId] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
+  // Lazy-init from localStorage so the values are present on first render and
+  // the persistence effects below don't clobber them on mount.
+  const [forms, setForms] = useState(() => readJSON(FORMS_KEY)); // { id: "great" }
+  const [areas, setAreas] = useState(() => readJSON(AREAS_KEY)); // { id: "ATT" | "DEF" }
   const pitchRef = useRef(null);
 
   // Load saved guests from localStorage and merge with hardcoded core squad.
@@ -101,6 +190,25 @@ export default function App() {
       setSquad(CORE_SQUAD);
     }
   }, []);
+
+  // Persist form/area tweaks so they carry to next session.
+  useEffect(() => {
+    localStorage.setItem(FORMS_KEY, JSON.stringify(forms));
+  }, [forms]);
+  useEffect(() => {
+    localStorage.setItem(AREAS_KEY, JSON.stringify(areas));
+  }, [areas]);
+
+  const getForm = (id) => forms[id] || "good";
+  const getArea = (id) => areas[id] || "MID";
+
+  function toggleForm(id) {
+    setForms((f) => ({ ...f, [id]: getForm(id) === "great" ? "good" : "great" }));
+  }
+  function cycleArea(id) {
+    const next = AREAS[(AREAS.indexOf(getArea(id)) + 1) % AREAS.length];
+    setAreas((a) => ({ ...a, [id]: next }));
+  }
 
   function saveSquad() {
     // Only persist guests (non-core) — core squad is always in the code.
@@ -188,6 +296,32 @@ export default function App() {
     setEditId(null);
   }
 
+  // Auto-split everyone who's coming into two balanced teams and drop them
+  // into formation. Re-run for a different fair split.
+  function balanceTeams() {
+    setPlayers((prev) => {
+      if (prev.length < 2) return prev;
+      const split = balance(prev, getForm, getArea);
+      const posA = layoutTeam(split.A, getArea, getForm);
+      const posB = layoutTeam(split.B, getArea, getForm);
+      const teamOf = {};
+      const posOf = {};
+      split.A.forEach((p) => ((teamOf[p.id] = "A"), (posOf[p.id] = posA[p.id])));
+      split.B.forEach((p) => ((teamOf[p.id] = "B"), (posOf[p.id] = posB[p.id])));
+      return prev.map((p) => ({
+        ...p,
+        team: teamOf[p.id],
+        x: posOf[p.id].x,
+        y: posOf[p.id].y,
+        tag: null, // let labels derive from the new positions
+      }));
+    });
+  }
+
+  function clearField() {
+    setPlayers((p) => p.map((pl) => ({ ...pl, team: null, tag: null })));
+  }
+
   function startDrag(id) {
     setDragId(id);
     setDragging(true);
@@ -252,6 +386,12 @@ export default function App() {
           <span className="muted">{comingCount} in</span>
         </div>
 
+        <div className="squad-cols">
+          <span className="col-name">Name</span>
+          <span className="col-form">Form</span>
+          <span className="col-pos">Position</span>
+        </div>
+
         <div
           className={`squad-list ${hover === "bench" ? "drop-hover" : ""}`}
           onDragOver={(e) => {
@@ -265,6 +405,8 @@ export default function App() {
             const coming = isComing(m.id);
             const player = players.find((p) => p.id === m.id);
             const placed = player && player.team != null;
+            const great = getForm(m.id) === "great";
+            const area = getArea(m.id);
             return (
               <div key={m.id} className={`squad-row ${coming ? "" : "out"}`}>
                 <input
@@ -282,10 +424,25 @@ export default function App() {
                     coming && !placed ? () => startDrag(m.id) : undefined
                   }
                   onDragEnd={endDrag}
+                  title={placed ? "On field" : undefined}
                 >
+                  {placed && <span className="on-dot" />}
                   {m.name}
                 </span>
-                {placed && <span className="field-badge">on field</span>}
+                <button
+                  className={`form-toggle ${great ? "great" : ""}`}
+                  title={great ? "Great — click for Good" : "Good — click for Great"}
+                  onClick={() => toggleForm(m.id)}
+                >
+                  {great ? "★" : "☆"}
+                </button>
+                <button
+                  className={`area-chip area-${area}`}
+                  title="Usual area — click to cycle DEF / MID / ATT"
+                  onClick={() => cycleArea(m.id)}
+                >
+                  {area}
+                </button>
                 {!m.core && (
                   <button
                     className="squad-x"
@@ -300,8 +457,9 @@ export default function App() {
           })}
         </div>
         <p className="hint">
-          Tick who's here today, then drag them onto a team. Labels auto-set by
-          zone — click a shirt to override. Drop back here to bench.
+          Tick who's here, set each player's usual area and ★ for the standouts,
+          then hit <b>Balance teams</b> for two fair sides — or drag people on
+          manually. Drop back here to bench.
         </p>
       </aside>
 
@@ -332,13 +490,30 @@ export default function App() {
               </select>
             </div>
           ))}
-          <button
-            className="export-btn"
-            onClick={exportImage}
-            disabled={exporting}
-          >
-            {exporting ? "Exporting…" : "⬇ Save as image"}
-          </button>
+          <div className="toolbar-actions">
+            <button
+              className="balance-btn"
+              onClick={balanceTeams}
+              disabled={comingCount < 2}
+              title="Auto-split everyone who's coming into two balanced teams"
+            >
+              ⚖ Balance teams
+            </button>
+            <button
+              className="ghost-btn"
+              onClick={clearField}
+              disabled={players.every((p) => p.team == null)}
+            >
+              Clear
+            </button>
+            <button
+              className="export-btn"
+              onClick={exportImage}
+              disabled={exporting}
+            >
+              {exporting ? "Exporting…" : "⬇ Save as image"}
+            </button>
+          </div>
         </div>
 
         <div

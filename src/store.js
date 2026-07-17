@@ -39,6 +39,10 @@ const remote = {
       supabase.from("guests").select("*").eq("game_date", date),
       supabase.from("game_meta").select("*").eq("game_date", date).maybeSingle(),
     ]);
+    // supabase-js reports connectivity/auth/schema problems as `error` rather
+    // than rejecting — surface it so the UI can show a "can't reach DB" banner.
+    const err = votesRes.error || guestsRes.error || metaRes.error;
+    if (err) throw new Error(err.message || "database unreachable");
     const votes = {};
     for (const r of votesRes.data || []) {
       votes[r.member_id] = { status: r.status, name: r.member_name, deviceId: r.device_id };

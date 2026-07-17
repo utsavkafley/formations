@@ -1088,3 +1088,14 @@ body {
 .open-now-btn:hover {
     background: rgba(61, 163, 93, 0.25);
 }
+
+/* Connectivity banner (shared DB configured but unreachable) */
+.conn-banner {
+    background: rgba(229, 100, 125, 0.14);
+    border: 1px solid #e5647d;
+    color: #ffb3c0;
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 13px;
+    line-height: 1.5;
+}

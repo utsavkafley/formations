@@ -20,16 +20,24 @@ export default function Poll({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [guestName, setGuestName] = useState("");
   const [editingMeta, setEditingMeta] = useState(false);
+  const [connError, setConnError] = useState(false);
 
   const eff = applyMeta(game, data.meta);
 
   // Authoritative refetch — used both on load and after every mutation, so the
   // UI reflects exactly what's in the store (no optimistic patches that could
-  // drift or double-count against the live subscription).
+  // drift or double-count against the live subscription). A failure here means
+  // the shared DB is unreachable (paused / misconfigured keys) — flag it.
   const reload = useCallback(async () => {
-    const d = await store.fetchGame(game.date);
-    setData(d);
-    setLoading(false);
+    try {
+      const d = await store.fetchGame(game.date);
+      setData(d);
+      setConnError(false);
+    } catch {
+      setConnError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [game.date]);
 
   // Load + live-subscribe to this game's poll.
@@ -100,6 +108,12 @@ export default function Poll({ onNavigate }) {
   return (
     <div className="poll">
       <div className="poll-card">
+        {connError && hasRemote && (
+          <div className="conn-banner" role="alert">
+            ⚠️ Can’t reach the database — RSVPs won’t save right now. The Supabase
+            project may be paused, or its URL/key isn’t set. Retrying automatically.
+          </div>
+        )}
         <header className="poll-head">
           <div className="poll-kicker">{open ? "Next game · tap to RSVP" : "Next game · RSVP opens soon"}</div>
           <h1 className="poll-date">{prettyDate(game.date)}</h1>

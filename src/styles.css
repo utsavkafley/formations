@@ -654,3 +654,437 @@ body {
         flex: 1;
     }
 }
+
+/* ============================================================= *
+ * Poll landing (RSVP for the next game)                          *
+ * ============================================================= */
+.poll {
+    min-height: 100vh;
+    height: auto;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 60px;
+    overflow-y: auto;
+}
+
+.poll-card {
+    width: 100%;
+    max-width: 620px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.poll-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+}
+
+.poll-kicker {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.poll-date {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.1;
+}
+
+.poll-when {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    color: var(--text);
+    font-size: 15px;
+    flex-wrap: wrap;
+}
+
+.poll-note {
+    font-size: 13px;
+    color: #f1b000;
+}
+
+.poll-tally {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.poll-tally b {
+    color: var(--text);
+    font-size: 15px;
+}
+
+.poll-tally .t-in {
+    color: var(--accent);
+}
+
+.poll-tally .t-out {
+    color: #e5647d;
+}
+
+.dot-sep {
+    margin: 0 8px;
+    color: var(--line);
+}
+
+.link-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+}
+
+.link-btn:hover {
+    color: var(--accent);
+}
+
+/* Identify */
+.poll-me {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.poll-me label {
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.poll-me select {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 15px;
+}
+
+/* Vote buttons */
+.poll-vote {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.vote-btn {
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.05s ease, border-color 0.1s ease;
+}
+
+.vote-btn:active {
+    transform: scale(0.98);
+}
+
+.vote-btn.in.active {
+    border-color: var(--accent);
+    background: rgba(61, 163, 93, 0.18);
+    color: #7ee2a0;
+}
+
+.vote-btn.out.active {
+    border-color: #e5647d;
+    background: rgba(229, 100, 125, 0.16);
+    color: #ffa8b9;
+}
+
+/* Guest prompt */
+.poll-guest {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.guest-prompt {
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.guest-form {
+    display: flex;
+    gap: 8px;
+}
+
+.guest-form input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+}
+
+.guest-form button {
+    padding: 10px 14px;
+    border-radius: 9px;
+    border: 1px solid var(--accent);
+    background: rgba(61, 163, 93, 0.15);
+    color: #7ee2a0;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.guest-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.guest-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px 5px 10px;
+    border-radius: 20px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font-size: 13px;
+}
+
+.guest-chip button {
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+.guest-chip button:hover {
+    color: #e5647d;
+}
+
+.poll-hint {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0;
+}
+
+/* Roster columns */
+.roster {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+}
+
+.roster-col {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 80px;
+}
+
+.roster-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.roster-in .roster-title {
+    color: var(--accent);
+}
+
+.roster-out .roster-title {
+    color: #e5647d;
+}
+
+.roster-count {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.roster-col ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 14px;
+}
+
+.muted-col ul {
+    color: var(--muted);
+}
+
+.li-guest {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 12px;
+    color: var(--accent);
+}
+
+.li-guest-row {
+    color: var(--muted);
+    font-style: italic;
+}
+
+/* Meta editor */
+.meta-editor {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.meta-editor label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.meta-editor input {
+    padding: 9px 11px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+}
+
+.meta-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.meta-actions button[type="submit"] {
+    padding: 9px 16px;
+    border-radius: 9px;
+    border: 1px solid var(--accent);
+    background: rgba(61, 163, 93, 0.15);
+    color: #7ee2a0;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Footer */
+.poll-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+
+.build-link {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.build-link:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.local-warn {
+    font-size: 12px;
+    color: #f1b000;
+    line-height: 1.5;
+}
+
+.local-warn code {
+    background: var(--bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+.back-link {
+    text-decoration: none;
+    font-weight: 600;
+}
+
+@media (max-width: 560px) {
+    .roster {
+        grid-template-columns: 1fr;
+    }
+
+    .poll-vote {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Poll teaser (before RSVP opens, 2 days prior) */
+.poll-teaser {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+}
+
+.teaser-lock {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.teaser-sub {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.open-now-btn {
+    margin-top: 4px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: rgba(61, 163, 93, 0.15);
+    color: #7ee2a0;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.open-now-btn:hover {
+    background: rgba(61, 163, 93, 0.25);
+}

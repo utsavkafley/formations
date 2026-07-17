@@ -3,3 +3,8 @@ dist
 *.local
 .DS_Store
 .vite
+
+# Secrets — never commit. .env holds the Supabase DB password + keys.
+.env
+.env.*
+!.env.example

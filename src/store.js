@@ -59,15 +59,7 @@ const remote = {
       deviceId: r.device_id,
     }));
     const m = metaRes.data;
-    const meta = m
-      ? {
-          time: m.time,
-          location: m.location,
-          note: m.note,
-          status: m.status,
-          openedManually: m.opened_manually,
-        }
-      : null;
+    const meta = m ? { time: m.time, location: m.location, note: m.note } : null;
     return { votes, guests, meta };
   },
 
@@ -109,22 +101,6 @@ const remote = {
   async setMeta(date, { time, location, note }) {
     await supabase.from("game_meta").upsert(
       { game_date: date, time, location, note, updated_at: new Date().toISOString() },
-      { onConflict: "game_date" },
-    );
-  },
-
-  // Open the poll early (manual override). Leaves any time/location edits intact.
-  async openPoll(date, { slotId, kickoffAt, opensAt }) {
-    await supabase.from("game_meta").upsert(
-      {
-        game_date: date,
-        slot_id: slotId,
-        kickoff_at: kickoffAt,
-        opens_at: opensAt,
-        status: "open",
-        opened_manually: true,
-        updated_at: new Date().toISOString(),
-      },
       { onConflict: "game_date" },
     );
   },
@@ -234,11 +210,6 @@ const local = {
   async setMeta(date, { time, location, note }) {
     const d = readLocal(date);
     d.meta = { ...(d.meta || {}), time, location, note };
-    writeLocal(date, d);
-  },
-  async openPoll(date, { slotId, kickoffAt, opensAt }) {
-    const d = readLocal(date);
-    d.meta = { ...(d.meta || {}), slotId, kickoffAt, opensAt, status: "open", openedManually: true };
     writeLocal(date, d);
   },
   // ---- Peer feedback (Phase 1) ----

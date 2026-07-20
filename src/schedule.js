@@ -10,12 +10,6 @@ export const SLOTS = [
 // the organizer) still land on today's poll rather than jumping to next week.
 const GRACE_MS = 3 * 60 * 60 * 1000;
 
-// The poll for a game opens this many days before kickoff. Before that the
-// landing shows a teaser ("RSVP opens …") instead of the vote buttons. The
-// cron auto-opens it; a person can also open it early ("Open RSVP now").
-export const OPEN_LEAD_DAYS = 2;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 function ymd(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -45,24 +39,10 @@ export function getNextGame(now = new Date()) {
     slotId: slot.id,
     date: ymd(when),
     when,
-    opensAt: new Date(when.getTime() - OPEN_LEAD_DAYS * DAY_MS),
     weekday: slot.label,
     time: slot.time,
     location: slot.location,
   };
-}
-
-// The next game's poll is always open: `getNextGame` rolls to the next slot the
-// moment the previous game ends (kickoff + grace), so RSVP for whatever's next
-// is open right away — e.g. Sunday's poll is open on Friday, once Thursday's
-// game is done. There is always exactly one open poll.
-export function isPollOpen() {
-  return true;
-}
-
-// Whole days until `date` (rounded up, never negative) — for "in 2 days".
-export function daysUntil(date, now = new Date()) {
-  return Math.max(0, Math.ceil((date.getTime() - now.getTime()) / DAY_MS));
 }
 
 // "Fri, Jul 17" from a Date.

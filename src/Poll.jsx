@@ -15,6 +15,7 @@ export default function Poll({ onNavigate }) {
   const [sheet, setSheet] = useState(null); // null | "vote" | "meta" | "feedback"
   const [feedbackTarget, setFeedbackTarget] = useState(null); // {subjectId, subjectName, gameDate}
   const autoOpened = useRef(false);
+  const feedbackCount = useRef(0); // ratings submitted this session (chain caps at 3)
 
   const eff = applyMeta(game, data.meta);
 
@@ -130,6 +131,7 @@ export default function Poll({ onNavigate }) {
         const target = await pickFeedbackTarget();
         if (target) {
           localStorage.setItem(askedKey, "1");
+          feedbackCount.current = 0;
           setFeedbackTarget(target);
           setSheet("feedback");
           return;
@@ -141,6 +143,9 @@ export default function Poll({ onNavigate }) {
     setSheet(null);
   }
 
+  // Save the rating, then chain to the next eligible teammate (selection
+  // naturally excludes anyone already rated) — up to 3 per session so the ask
+  // stays light. Any failure just ends the chain.
   async function submitFeedback({ performance, strengths }) {
     await store.addFeedback({
       subjectId: feedbackTarget.subjectId,
@@ -149,6 +154,18 @@ export default function Poll({ onNavigate }) {
       performance,
       strengths,
     });
+    feedbackCount.current += 1;
+    if (feedbackCount.current < 3) {
+      try {
+        const next = await pickFeedbackTarget();
+        if (next) {
+          setFeedbackTarget(next);
+          return;
+        }
+      } catch {
+        /* end the chain */
+      }
+    }
     setSheet(null);
   }
 
@@ -314,7 +331,9 @@ export default function Poll({ onNavigate }) {
 
       {sheet === "feedback" && feedbackTarget && (
         <FeedbackSheet
+          key={`${feedbackTarget.subjectId}|${feedbackTarget.gameDate}`}
           subjectName={feedbackTarget.subjectName}
+          chained={feedbackCount.current > 0}
           onClose={() => setSheet(null)}
           onSubmit={submitFeedback}
         />
@@ -370,13 +389,21 @@ const PERF = [
   { key: "great", label: "Great" },
 ];
 
-function FeedbackSheet({ subjectName, onClose, onSubmit }) {
+function FeedbackSheet({ subjectName, chained, onClose, onSubmit }) {
   const [perf, setPerf] = useState(null);
   const [picked, setPicked] = useState([]);
   const toggle = (k) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
 
   return (
-    <Sheet title="Quick rating" subtitle={`Help balance teams — how did ${subjectName} play?`} onClose={onClose}>
+    <Sheet
+      title="Quick rating"
+      subtitle={
+        chained
+          ? `Saved ✓ — one more: how did ${subjectName} play?`
+          : `Help balance teams — how did ${subjectName} play?`
+      }
+      onClose={onClose}
+    >
       <label className="field-label">{subjectName}'s performance</label>
       <div className="perf-row">
         {PERF.map((p) => (

@@ -930,25 +930,6 @@ h3 {
     color: var(--green);
 }
 
-/* ---- Teaser (before RSVP opens) ---- */
-.teaser {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--r-lg);
-    padding: 22px;
-    text-align: center;
-}
-.teaser-lock {
-    font-size: 20px;
-    font-weight: 800;
-}
-.teaser-sub {
-    margin: 8px 0 18px;
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.5;
-}
-
 /* ---- Connectivity banner ---- */
 .conn-banner {
     background: var(--coral-soft);

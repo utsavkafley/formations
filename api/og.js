@@ -4,47 +4,14 @@
 // middleware.js. Degrades to a plain text card if this ever errors.
 import React from "react";
 import { ImageResponse } from "@vercel/og";
+import { TZ, nextGame, prettyTime } from "../lib/edge-schedule.js";
 
 export const config = { runtime: "edge" };
 
 const h = React.createElement;
 
-const TZ = process.env.TEAM_TZ || "America/New_York";
-const SLOTS = [
-  { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park" },
-  { id: "sun", weekday: 0, time: "06:30", location: "Thomas Brooks Park" },
-];
-const GRACE = 3 * 60 * 60 * 1000;
-const DAY = 24 * 60 * 60 * 1000;
-const LEAD = 2;
-
-const tzNow = () => new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
-const ymd = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-function nextGame() {
-  const from = tzNow();
-  const cands = SLOTS.map((s) => {
-    const [hh, mm] = s.time.split(":").map(Number);
-    const d = new Date(from);
-    d.setHours(hh, mm, 0, 0);
-    let add = (s.weekday - d.getDay() + 7) % 7;
-    if (add === 0 && d.getTime() + GRACE <= from.getTime()) add = 7;
-    d.setDate(d.getDate() + add);
-    return { slot: s, when: d };
-  });
-  cands.sort((a, b) => a.when - b.when);
-  const { slot, when } = cands[0];
-  return { slot, date: ymd(when), when, opensAt: new Date(when.getTime() - LEAD * DAY) };
-}
-const prettyTime = (t) => {
-  const [hh, mm] = t.split(":").map(Number);
-  return `${hh % 12 || 12}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
-};
 const longDate = (d) =>
   d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: TZ });
-const shortDay = (d) =>
-  d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: TZ });
 
 async function loadFont(weight) {
   const res = await fetch(
@@ -61,7 +28,6 @@ export default async function handler() {
   let inCount = 0;
   let outCount = 0;
   let guestCount = 0;
-  const open = true; // the next game's poll is always open
 
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.VITE_SUPABASE_ANON_KEY;
@@ -120,16 +86,14 @@ export default async function handler() {
       h("div", { style: { display: "flex" } }, location),
     ),
     h("div", { style: { display: "flex", flex: 1 } }),
-    open
-      ? h(
-          "div",
-          { style: { display: "flex", alignItems: "center", gap: 18, fontSize: 44, fontWeight: 800 } },
-          h("div", { style: { display: "flex", color: "#22c55e" } }, `${inCount + guestCount} IN`),
-          h("div", { style: { display: "flex", color: muted } }, "·"),
-          h("div", { style: { display: "flex", color: "#fb7185" } }, `${outCount} OUT`),
-          h("div", { style: { display: "flex", color: muted, fontSize: 30, fontWeight: 600, marginLeft: 8 } }, "— tap to RSVP"),
-        )
-      : h("div", { style: { display: "flex", fontSize: 40, fontWeight: 800, color: "#fbbf24" } }, `RSVP opens ${shortDay(g.opensAt)}`),
+    h(
+      "div",
+      { style: { display: "flex", alignItems: "center", gap: 18, fontSize: 44, fontWeight: 800 } },
+      h("div", { style: { display: "flex", color: "#22c55e" } }, `${inCount + guestCount} IN`),
+      h("div", { style: { display: "flex", color: muted } }, "·"),
+      h("div", { style: { display: "flex", color: "#fb7185" } }, `${outCount} OUT`),
+      h("div", { style: { display: "flex", color: muted, fontSize: 30, fontWeight: 600, marginLeft: 8 } }, "— tap to RSVP"),
+    ),
   );
 
   return new ImageResponse(tree, {

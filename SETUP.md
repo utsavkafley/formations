@@ -73,11 +73,12 @@ teaser, no waiting.
 
 ## Schedule
 
-Defaults live in four in-sync copies (browser, shared Deno, and the two edge
-runtimes) — update all when the schedule changes:
+Defaults live in three in-sync copies (browser, Vercel edge, Deno cron) —
+update all when the schedule changes:
 [`src/schedule.js`](src/schedule.js),
-[`supabase/functions/_shared/schedule.ts`](supabase/functions/_shared/schedule.ts),
-[`middleware.js`](middleware.js), [`api/og.js`](api/og.js).
+[`lib/edge-schedule.js`](lib/edge-schedule.js) (shared by `middleware.js` and
+`api/og.js`),
+[`supabase/functions/_shared/schedule.ts`](supabase/functions/_shared/schedule.ts).
 
 - **Thursday 7:30 PM** — Pleasant Park
 - **Sunday 6:30 AM** — Thomas Brooks Park

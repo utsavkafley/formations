@@ -12,7 +12,7 @@ const h = React.createElement;
 const TZ = process.env.TEAM_TZ || "America/New_York";
 const SLOTS = [
   { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park" },
-  { id: "sun", weekday: 0, time: "18:30", location: "Thomas Brooks Park" },
+  { id: "sun", weekday: 0, time: "06:30", location: "Thomas Brooks Park" },
 ];
 const GRACE = 3 * 60 * 60 * 1000;
 const DAY = 24 * 60 * 60 * 1000;
@@ -61,7 +61,7 @@ export default async function handler() {
   let inCount = 0;
   let outCount = 0;
   let guestCount = 0;
-  let open = Date.now() >= g.opensAt.getTime();
+  const open = true; // the next game's poll is always open
 
   const url = process.env.VITE_SUPABASE_URL;
   const key = process.env.VITE_SUPABASE_ANON_KEY;
@@ -84,7 +84,6 @@ export default async function handler() {
       if (Array.isArray(metas) && metas[0]) {
         time = metas[0].time || time;
         location = metas[0].location || location;
-        open = open || Boolean(metas[0].opened_manually);
       }
     } catch {
       /* schedule-only image */

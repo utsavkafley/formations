@@ -60,29 +60,27 @@ Then schedule it (every 6 hours) — either run
 [`supabase/cron.sql`](supabase/cron.sql) (fill in your project URL + anon key),
 or use **Dashboard → Integrations → Cron** to POST to the function URL.
 
-Each run:
+The cron's remaining job is to **keep the project awake** (its scheduled HTTP
+call is real API activity) and mark finished games `closed`. It runs in UTC, so
+it resolves "Thursday 7:30 PM" in `TEAM_TZ` first.
 
-- **Keeps the project awake** — the scheduled HTTP call is real API activity.
-- **Opens the poll ~2 days before kickoff** (`status → open`) and marks finished
-  games `closed`.
+### Poll opening
 
-Because it runs in UTC, it resolves "Thursday 7:30 PM" in `TEAM_TZ` first.
-
-### Poll opening, without the cron
-
-The client is self-sufficient: it opens the RSVP on its own once you're within
-**2 days** of kickoff. Before that it shows a *"RSVP opens \<day\>"* teaser with
-an **Open RSVP now** button to open it early. The cron just persists that state
-for the shared DB and the link preview, and keeps the project alive.
+The **next game's poll is always open** — there's always exactly one, and it
+flips to the next slot the moment the previous game ends (kickoff + ~3h grace).
+So Sunday's RSVP is already open on Friday, once Thursday's game is done. No
+teaser, no waiting.
 
 ## Schedule
 
-Defaults live in [`src/schedule.js`](src/schedule.js) (browser) and
-[`supabase/functions/_shared/schedule.ts`](supabase/functions/_shared/schedule.ts)
-(server — keep the two in sync):
+Defaults live in four in-sync copies (browser, shared Deno, and the two edge
+runtimes) — update all when the schedule changes:
+[`src/schedule.js`](src/schedule.js),
+[`supabase/functions/_shared/schedule.ts`](supabase/functions/_shared/schedule.ts),
+[`middleware.js`](middleware.js), [`api/og.js`](api/og.js).
 
 - **Thursday 7:30 PM** — Pleasant Park
-- **Sunday 6:30 PM** — Thomas Brooks Park
+- **Sunday 6:30 AM** — Thomas Brooks Park
 
 The poll always shows the closest upcoming slot, and stays on a game until ~3h
 after kickoff before rolling to the next. Time / location / a note can be

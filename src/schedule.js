@@ -3,7 +3,7 @@
 // the poll (stored in game_meta), which the UI layers on top of these.
 export const SLOTS = [
   { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park", label: "Thursday" },
-  { id: "sun", weekday: 0, time: "18:30", location: "Thomas Brooks Park", label: "Sunday" },
+  { id: "sun", weekday: 0, time: "06:30", location: "Thomas Brooks Park", label: "Sunday" },
 ];
 
 // Keep a game "current" for a few hours after kickoff so people arriving late (or
@@ -52,10 +52,12 @@ export function getNextGame(now = new Date()) {
   };
 }
 
-// Is the RSVP poll open? True once we're within OPEN_LEAD_DAYS of kickoff, or
-// as soon as someone opens it early.
-export function isPollOpen(game, openedManually, now = new Date()) {
-  return Boolean(openedManually) || now.getTime() >= game.opensAt.getTime();
+// The next game's poll is always open: `getNextGame` rolls to the next slot the
+// moment the previous game ends (kickoff + grace), so RSVP for whatever's next
+// is open right away — e.g. Sunday's poll is open on Friday, once Thursday's
+// game is done. There is always exactly one open poll.
+export function isPollOpen() {
+  return true;
 }
 
 // Whole days until `date` (rounded up, never negative) — for "in 2 days".

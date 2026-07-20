@@ -14,7 +14,7 @@ export const config = { matcher: "/" };
 const TZ = process.env.TEAM_TZ || "America/New_York";
 const SLOTS = [
   { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park" },
-  { id: "sun", weekday: 0, time: "18:30", location: "Thomas Brooks Park" },
+  { id: "sun", weekday: 0, time: "06:30", location: "Thomas Brooks Park" },
 ];
 const GRACE = 3 * 60 * 60 * 1000;
 const DAY = 24 * 60 * 60 * 1000;
@@ -61,11 +61,8 @@ export default async function middleware(request) {
     let html = await res.text();
 
     const g = nextGame();
-    const open = Date.now() >= g.opensAt.getTime();
     const title = `Pickup · ${shortDay(g.when)} · ${g.slot.location} · ${prettyTime(g.slot.time)}`;
-    const desc = open
-      ? "Tap to mark yourself IN or OUT for the next pickup game."
-      : `RSVP opens ${shortDay(g.opensAt)} — tap to see the next game.`;
+    const desc = "Tap to mark yourself IN or OUT for the next pickup game.";
     const img = `${origin}/api/og`;
 
     // Exact-string swaps: match → replace, miss → no-op (never corrupts the doc).

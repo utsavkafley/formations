@@ -1,15 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import store, { hasRemote } from "./store.js";
-import {
-  getNextGame,
-  applyMeta,
-  prettyDate,
-  prettyTime,
-  prettyDay,
-  gameName,
-  isPollOpen,
-  daysUntil,
-} from "./schedule.js";
+import { getNextGame, applyMeta, prettyDate, prettyTime, gameName } from "./schedule.js";
 import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD } from "./squad.js";
 
@@ -24,7 +15,6 @@ export default function Poll({ onNavigate }) {
   const autoOpened = useRef(false);
 
   const eff = applyMeta(game, data.meta);
-  const open = isPollOpen(game, data.meta?.openedManually);
 
   const reload = useCallback(async () => {
     try {
@@ -46,13 +36,13 @@ export default function Poll({ onNavigate }) {
 
   const myVote = me ? data.votes[me.id]?.status : null;
 
-  // Prompt to vote on arrival — once — if the poll is open and there's no reply.
+  // Prompt to vote on arrival — once — if there's no reply yet.
   useEffect(() => {
-    if (!loading && open && !myVote && !autoOpened.current) {
+    if (!loading && !myVote && !autoOpened.current) {
       autoOpened.current = true;
       setSheet("vote");
     }
-  }, [loading, open, myVote]);
+  }, [loading, myVote]);
 
   const roster = CORE_SQUAD;
   const inList = roster.filter((m) => data.votes[m.id]?.status === "in");
@@ -92,15 +82,6 @@ export default function Poll({ onNavigate }) {
     reload();
   }
 
-  async function openNow() {
-    await store.openPoll(game.date, {
-      slotId: game.slotId,
-      kickoffAt: game.when.toISOString(),
-      opensAt: game.opensAt.toISOString(),
-    });
-    reload();
-  }
-
   const rsvpLabel =
     myVote === "in" ? "✅ You're IN · tap to change"
     : myVote === "out" ? "🚫 You're OUT · tap to change"
@@ -129,24 +110,22 @@ export default function Poll({ onNavigate }) {
           </button>
         </header>
 
-        {open ? (
-          <>
-            <div className="tally">
-              <div className="stat stat-in">
-                <b>{totalIn}</b>
-                <span>In</span>
-              </div>
-              <div className="stat stat-out">
-                <b>{outList.length}</b>
-                <span>Out</span>
-              </div>
-              <div className="stat">
-                <b>{noResp.length}</b>
-                <span>No reply</span>
-              </div>
-            </div>
+        <div className="tally">
+          <div className="stat stat-in">
+            <b>{totalIn}</b>
+            <span>In</span>
+          </div>
+          <div className="stat stat-out">
+            <b>{outList.length}</b>
+            <span>Out</span>
+          </div>
+          <div className="stat">
+            <b>{noResp.length}</b>
+            <span>No reply</span>
+          </div>
+        </div>
 
-            <section>
+        <section>
               <div className="roster-block in">
                 <h3>
                   Going <span className="count">{totalIn}</span>
@@ -199,21 +178,7 @@ export default function Poll({ onNavigate }) {
                   ))}
                 </div>
               </div>
-            </section>
-          </>
-        ) : (
-          <div className="teaser">
-            <div className="teaser-lock">🔒 RSVP opens {prettyDay(game.opensAt)}</div>
-            <div className="teaser-sub">
-              {daysUntil(game.opensAt) === 0
-                ? "Opening today — check back shortly, or open it now."
-                : `In ${daysUntil(game.opensAt)} day${daysUntil(game.opensAt) === 1 ? "" : "s"}. Come back then to mark yourself IN or OUT.`}
-            </div>
-            <button className="rsvp-btn none" style={{ position: "static", maxWidth: 260, margin: "0 auto" }} onClick={openNow}>
-              Open RSVP now
-            </button>
-          </div>
-        )}
+        </section>
 
         <button className="build-cta" onClick={() => onNavigate("/build")}>
           Organizer → balance teams &amp; build formation
@@ -226,16 +191,11 @@ export default function Poll({ onNavigate }) {
         )}
       </div>
 
-      {open && (
-        <div className="rsvp-bar">
-          <button
-            className={`rsvp-btn ${myVote || "none"}`}
-            onClick={() => setSheet("vote")}
-          >
-            {rsvpLabel}
-          </button>
-        </div>
-      )}
+      <div className="rsvp-bar">
+        <button className={`rsvp-btn ${myVote || "none"}`} onClick={() => setSheet("vote")}>
+          {rsvpLabel}
+        </button>
+      </div>
 
       {sheet === "vote" && (
         <Sheet title="You in?" subtitle={gameName(eff)} onClose={() => setSheet(null)}>

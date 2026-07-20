@@ -6,7 +6,7 @@
 // src/schedule.js (the browser copy, which can just use local time).
 export const SLOTS = [
   { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park", label: "Thu" },
-  { id: "sun", weekday: 0, time: "18:30", location: "Thomas Brooks Park", label: "Sun" },
+  { id: "sun", weekday: 0, time: "06:30", location: "Thomas Brooks Park", label: "Sun" },
 ];
 export const OPEN_LEAD_DAYS = 2;
 const GRACE_MS = 3 * 60 * 60 * 1000;

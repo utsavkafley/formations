@@ -27,19 +27,24 @@ banner on the poll reminds you of this.
 Identity is login-free: each device keeps a random id and the name you pick,
 so your IN/OUT choice sticks to you on return visits.
 
-## 3. Live link previews in group chats (optional)
+## 3. Live link previews in group chats
 
-So a shared link unfurls as `⚽ Thu 7:30 PM · Pleasant Park — 12 IN · 3 OUT`:
+Handled automatically by [`middleware.js`](middleware.js) — a Vercel Edge
+Middleware that ships with your normal `git push` (no separate deploy). When a
+chat app unfurls the plain link, it returns Open Graph tags naming the next
+game with live counts, e.g.
+`Pickup · Thu, Jul 23 · Pleasant Park · 7:30 PM` / `12 in · 3 out — tap to RSVP`.
+Real browsers fall straight through to the app.
 
-```bash
-supabase functions deploy og --no-verify-jwt
-supabase secrets set APP_URL=https://your-deployed-app-url
-```
+It reads the **same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`** you already
+set in Vercel (available to the edge runtime regardless of the `VITE_` prefix),
+so there's nothing extra to configure. Optional: set a `TEAM_TZ` env var in
+Vercel (default `America/New_York`) so "Thursday 7:30 PM" resolves in your
+timezone.
 
-Then **share the function URL** in the chat, e.g.
-`https://YOUR-PROJECT.functions.supabase.co/og`. Crawlers read the live meta
-tags; humans get redirected to the RSVP screen. (Drop an `og-default.png`
-preview image in `public/` for the thumbnail.)
+**Test it:** paste `https://yoloformation.vercel.app` into
+<https://www.opengraph.xyz> (or a real group chat), or run
+`curl -A "Twitterbot" https://yoloformation.vercel.app` and check the `<meta>` tags.
 
 ## 4. Auto-open the poll + keep the project alive (cron)
 

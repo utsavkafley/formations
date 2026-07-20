@@ -2,22 +2,21 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>YOLO Formation — Next game RSVP</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        <title>Pickup — Next game RSVP</title>
 
-        <!-- Link-preview (Open Graph) defaults. The Supabase Edge Function in
-             supabase/functions/og rewrites these with the live game + tally
-             (e.g. "Thu 7:30 Pleasant Park — 12 IN") when the share link is
-             unfurled in a group chat. -->
+        <!-- Static link-preview fallback. For crawlers, the Vercel Edge
+             Middleware (middleware.js) overrides these with the live next game
+             + tally, e.g. "Pickup · Thu, Jul 23 · Pleasant Park · 7:30 PM". -->
         <meta property="og:type" content="website" />
-        <meta property="og:title" content="⚽ YOLO Formation — Next game RSVP" />
+        <meta property="og:site_name" content="YOLO Formation" />
+        <meta property="og:title" content="Pickup — Next game RSVP" />
         <meta
             property="og:description"
-            content="Tap to mark yourself IN or OUT for the next game (Thu 7:30 Pleasant Park / Sun 6:30 Thomas Brooks Park)."
+            content="Tap to mark yourself IN or OUT for the next pickup game."
         />
-        <meta property="og:image" content="/og-default.png" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="theme-color" content="#0b0f14" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="theme-color" content="#0a0e13" />
     </head>
     <body>
         <div id="root"></div>

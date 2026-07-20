@@ -97,3 +97,10 @@ export function prettyTime(t) {
   const h12 = h % 12 || 12;
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
+
+// "Pickup · Thu, Jul 23 · Pleasant Park · 7:30 PM" — the game's display name,
+// used in the poll header and the shared link preview. `game` should be the
+// meta-merged object (so overridden time/location show).
+export function gameName(game) {
+  return `Pickup · ${prettyDay(game.when)} · ${game.location} · ${prettyTime(game.time)}`;
+}

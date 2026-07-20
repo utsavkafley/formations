@@ -498,6 +498,12 @@ export default function Builder({ onNavigate }) {
   const comingCount = players.length;
   const allComing = squad.length > 0 && comingCount >= squad.length;
 
+  // Signed-up players (those coming) float to the top so the organizer sees
+  // who's in first. Stable sort keeps each group's original order.
+  const orderedSquad = [...squad].sort(
+    (a, b) => (isComing(b.id) ? 1 : 0) - (isComing(a.id) ? 1 : 0),
+  );
+
   return (
     <div className="app">
       <aside className="sidebar">
@@ -550,7 +556,7 @@ export default function Builder({ onNavigate }) {
         </div>
 
         <div className={`squad-list ${hover === "bench" ? "drop-hover" : ""}`}>
-          {squad.map((m) => {
+          {orderedSquad.map((m) => {
             const coming = isComing(m.id);
             const player = players.find((p) => p.id === m.id);
             const placed = player && player.team != null;

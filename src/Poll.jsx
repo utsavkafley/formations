@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import store, { hasRemote } from "./store.js";
 import {
   getNextGame,
@@ -6,6 +6,7 @@ import {
   prettyDate,
   prettyTime,
   prettyDay,
+  gameName,
   isPollOpen,
   daysUntil,
 } from "./schedule.js";
@@ -18,16 +19,13 @@ export default function Poll({ onNavigate }) {
   const [me, setMeState] = useState(() => getMe());
   const [data, setData] = useState({ votes: {}, guests: [], meta: null });
   const [loading, setLoading] = useState(true);
-  const [guestName, setGuestName] = useState("");
-  const [editingMeta, setEditingMeta] = useState(false);
   const [connError, setConnError] = useState(false);
+  const [sheet, setSheet] = useState(null); // null | "vote" | "meta"
+  const autoOpened = useRef(false);
 
   const eff = applyMeta(game, data.meta);
+  const open = isPollOpen(game, data.meta?.openedManually);
 
-  // Authoritative refetch — used both on load and after every mutation, so the
-  // UI reflects exactly what's in the store (no optimistic patches that could
-  // drift or double-count against the live subscription). A failure here means
-  // the shared DB is unreachable (paused / misconfigured keys) — flag it.
   const reload = useCallback(async () => {
     try {
       const d = await store.fetchGame(game.date);
@@ -40,7 +38,6 @@ export default function Poll({ onNavigate }) {
     }
   }, [game.date]);
 
-  // Load + live-subscribe to this game's poll.
   useEffect(() => {
     reload();
     const unsub = store.subscribe(game.date, reload);
@@ -48,13 +45,20 @@ export default function Poll({ onNavigate }) {
   }, [game.date, reload]);
 
   const myVote = me ? data.votes[me.id]?.status : null;
-  const myGuests = me ? data.guests.filter((g) => g.hostMemberId === me.id) : [];
+
+  // Prompt to vote on arrival — once — if the poll is open and there's no reply.
+  useEffect(() => {
+    if (!loading && open && !myVote && !autoOpened.current) {
+      autoOpened.current = true;
+      setSheet("vote");
+    }
+  }, [loading, open, myVote]);
 
   const roster = CORE_SQUAD;
   const inList = roster.filter((m) => data.votes[m.id]?.status === "in");
   const outList = roster.filter((m) => data.votes[m.id]?.status === "out");
   const noResp = roster.filter((m) => !data.votes[m.id]);
-  const guestsByHost = (id) => data.guests.filter((g) => g.hostMemberId === id);
+  const totalIn = inList.length + data.guests.length;
 
   function pickMe(id) {
     const member = roster.find((m) => m.id === id);
@@ -65,7 +69,6 @@ export default function Poll({ onNavigate }) {
   async function vote(status) {
     if (!me) return;
     await store.setVote(game.date, { memberId: me.id, memberName: me.name, status, deviceId });
-    // A guest comes with their host — dropping to OUT drops their guests too.
     if (status === "out") {
       const mine = data.guests.filter((g) => g.hostMemberId === me.id);
       await Promise.all(mine.map((g) => store.removeGuest(game.date, g.id)));
@@ -73,13 +76,10 @@ export default function Poll({ onNavigate }) {
     reload();
   }
 
-  async function addGuest(e) {
-    e.preventDefault();
-    const nm = guestName.trim();
-    if (!nm || !me) return;
-    setGuestName("");
+  async function addGuest(name) {
+    if (!name.trim() || !me) return;
     await store.addGuest(game.date, {
-      name: nm,
+      name: name.trim(),
       hostMemberId: me.id,
       hostName: me.name,
       deviceId,
@@ -92,7 +92,6 @@ export default function Poll({ onNavigate }) {
     reload();
   }
 
-  // Open the poll ahead of its automatic 2-days-prior opening.
   async function openNow() {
     await store.openPoll(game.date, {
       slotId: game.slotId,
@@ -102,77 +101,146 @@ export default function Poll({ onNavigate }) {
     reload();
   }
 
-  const open = isPollOpen(game, data.meta?.openedManually);
-  const totalIn = inList.length + data.guests.length;
+  const rsvpLabel =
+    myVote === "in" ? "✅ You're IN · tap to change"
+    : myVote === "out" ? "🚫 You're OUT · tap to change"
+    : "Tap to RSVP";
 
   return (
     <div className="poll">
-      <div className="poll-card">
+      <div className="poll-shell">
         {connError && hasRemote && (
           <div className="conn-banner" role="alert">
-            ⚠️ Can’t reach the database — RSVPs won’t save right now. The Supabase
-            project may be paused, or its URL/key isn’t set. Retrying automatically.
+            ⚠️ Can’t reach the database — RSVPs won’t save right now. The project may be
+            paused or its keys aren’t set. Retrying automatically.
           </div>
         )}
-        <header className="poll-head">
-          <div className="poll-kicker">{open ? "Next game · tap to RSVP" : "Next game · RSVP opens soon"}</div>
-          <h1 className="poll-date">{prettyDate(game.date)}</h1>
-          <div className="poll-when">
-            <span>🕕 {prettyTime(eff.time)}</span>
-            <span>📍 {eff.location}</span>
-            <button className="link-btn" onClick={() => setEditingMeta((v) => !v)}>
-              {editingMeta ? "close" : "edit"}
-            </button>
+
+        <header className="hero">
+          <div className="hero-kicker">Pickup · Next game</div>
+          <h1 className="hero-title">{prettyDate(game.date)}</h1>
+          <div className="hero-meta">
+            <span className="chip">🕕 {prettyTime(eff.time)}</span>
+            <span className="chip">📍 {eff.location}</span>
           </div>
-          {eff.note && <div className="poll-note">ℹ️ {eff.note}</div>}
-          {open && (
-            <div className="poll-tally">
-              <b className="t-in">{totalIn}</b> in
-              <span className="dot-sep">·</span>
-              <b className="t-out">{outList.length}</b> out
-              <span className="dot-sep">·</span>
-              <b>{noResp.length}</b> no reply
-              {data.guests.length > 0 && (
-                <>
-                  <span className="dot-sep">·</span>
-                  <b>{data.guests.length}</b> guest{data.guests.length === 1 ? "" : "s"}
-                </>
-              )}
-            </div>
-          )}
+          {eff.note && <div className="hero-note">ℹ️ {eff.note}</div>}
+          <button className="hero-edit" onClick={() => setSheet("meta")}>
+            Edit time / location
+          </button>
         </header>
 
-        {editingMeta && (
-          <MetaEditor
-            game={eff}
-            onSave={async (m) => {
-              await store.setMeta(game.date, m);
-              reload();
-            }}
-            onDone={() => setEditingMeta(false)}
-          />
-        )}
+        {open ? (
+          <>
+            <div className="tally">
+              <div className="stat stat-in">
+                <b>{totalIn}</b>
+                <span>In</span>
+              </div>
+              <div className="stat stat-out">
+                <b>{outList.length}</b>
+                <span>Out</span>
+              </div>
+              <div className="stat">
+                <b>{noResp.length}</b>
+                <span>No reply</span>
+              </div>
+            </div>
 
-        {!open && (
-          <div className="poll-teaser">
+            <section>
+              <div className="roster-block in">
+                <h3>
+                  Going <span className="count">{totalIn}</span>
+                </h3>
+                {totalIn === 0 ? (
+                  <div className="roster-empty">Nobody yet — be the first.</div>
+                ) : (
+                  <div className="namechips">
+                    {inList.map((m) => (
+                      <span key={m.id} className="namechip">
+                        {m.name}
+                        {me?.id === m.id && <span className="you">you</span>}
+                      </span>
+                    ))}
+                    {data.guests.map((g) => (
+                      <span key={g.id} className="namechip guest" title={`Guest of ${g.hostName}`}>
+                        {g.name} +1
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {outList.length > 0 && (
+                <div className="roster-block out">
+                  <h3>
+                    Can’t make it <span className="count">{outList.length}</span>
+                  </h3>
+                  <div className="namechips">
+                    {outList.map((m) => (
+                      <span key={m.id} className="namechip">
+                        {m.name}
+                        {me?.id === m.id && <span className="you">you</span>}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="roster-block">
+                <h3>
+                  No reply <span className="count">{noResp.length}</span>
+                </h3>
+                <div className="namechips">
+                  {noResp.map((m) => (
+                    <span key={m.id} className="namechip" style={{ opacity: 0.6 }}>
+                      {m.name}
+                      {me?.id === m.id && <span className="you">you</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </>
+        ) : (
+          <div className="teaser">
             <div className="teaser-lock">🔒 RSVP opens {prettyDay(game.opensAt)}</div>
             <div className="teaser-sub">
               {daysUntil(game.opensAt) === 0
                 ? "Opening today — check back shortly, or open it now."
                 : `In ${daysUntil(game.opensAt)} day${daysUntil(game.opensAt) === 1 ? "" : "s"}. Come back then to mark yourself IN or OUT.`}
             </div>
-            <button className="open-now-btn" onClick={openNow}>
+            <button className="rsvp-btn none" style={{ position: "static", maxWidth: 260, margin: "0 auto" }} onClick={openNow}>
               Open RSVP now
             </button>
           </div>
         )}
 
-        {open && (
-          <>
-        {/* Identify (no login) */}
-        <div className="poll-me">
-          <label>You are</label>
-          <select value={me?.id || ""} onChange={(e) => pickMe(e.target.value)}>
+        <button className="build-cta" onClick={() => onNavigate("/build")}>
+          Organizer → balance teams &amp; build formation
+        </button>
+
+        {!hasRemote && (
+          <div className="local-warn">
+            ⚠️ Local-only mode — add Supabase keys to share across devices. See <code>SETUP.md</code>.
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <div className="rsvp-bar">
+          <button
+            className={`rsvp-btn ${myVote || "none"}`}
+            onClick={() => setSheet("vote")}
+          >
+            {rsvpLabel}
+          </button>
+        </div>
+      )}
+
+      {sheet === "vote" && (
+        <Sheet title="You in?" subtitle={gameName(eff)} onClose={() => setSheet(null)}>
+          <label className="field-label">You are</label>
+          <select className="select" value={me?.id || ""} onChange={(e) => pickMe(e.target.value)}>
             <option value="" disabled>
               Pick your name…
             </option>
@@ -182,117 +250,121 @@ export default function Poll({ onNavigate }) {
               </option>
             ))}
           </select>
-        </div>
 
-        {/* IN / OUT */}
-        {me ? (
-          <>
-            <div className="poll-vote">
-              <button className={`vote-btn in ${myVote === "in" ? "active" : ""}`} onClick={() => vote("in")}>
-                ✅ I'm IN
-              </button>
-              <button className={`vote-btn out ${myVote === "out" ? "active" : ""}`} onClick={() => vote("out")}>
-                ❌ I'm OUT
-              </button>
-            </div>
+          <div className="vote2">
+            <button
+              className={`v-btn in ${myVote === "in" ? "on" : ""}`}
+              disabled={!me}
+              onClick={() => vote("in")}
+            >
+              ✅ I’m IN
+            </button>
+            <button
+              className={`v-btn out ${myVote === "out" ? "on" : ""}`}
+              disabled={!me}
+              onClick={() => vote("out")}
+            >
+              🚫 Can’t make it
+            </button>
+          </div>
 
-            {myVote === "in" && (
-              <div className="poll-guest">
-                <div className="guest-prompt">Bringing a guest?</div>
-                <form className="guest-form" onSubmit={addGuest}>
-                  <input
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    placeholder="Guest name…"
-                    aria-label="Guest name"
-                  />
-                  <button type="submit">+ Add</button>
-                </form>
-                {myGuests.length > 0 && (
-                  <div className="guest-chips">
-                    {myGuests.map((g) => (
-                      <span key={g.id} className="guest-chip">
-                        {g.name}
-                        <button onClick={() => removeGuest(g.id)} aria-label={`Remove ${g.name}`}>
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <p className="poll-hint">Pick your name above to mark yourself IN or OUT.</p>
-        )}
-
-        {loading && <p className="poll-hint">Loading…</p>}
-
-        {/* Roster status */}
-        <div className="roster">
-          <RosterCol title="IN" cls="in" members={inList} guestsByHost={guestsByHost} looseGuests={data.guests.filter((g) => !inList.some((m) => m.id === g.hostMemberId))} />
-          <RosterCol title="OUT" cls="out" members={outList} />
-          <RosterCol title="No reply" cls="none" members={noResp} muted />
-        </div>
-          </>
-        )}
-
-        <footer className="poll-foot">
-          <button className="build-link" onClick={() => onNavigate("/build")}>
-            Organizer → balance teams & build formation
-          </button>
-          {!hasRemote && (
-            <div className="local-warn">
-              ⚠️ Running in local-only mode — add Supabase keys to share across devices. See{" "}
-              <code>SETUP.md</code>.
-            </div>
+          {myVote === "in" && (
+            <GuestBlock
+              guests={data.guests.filter((g) => g.hostMemberId === me.id)}
+              onAdd={addGuest}
+              onRemove={removeGuest}
+            />
           )}
-        </footer>
-      </div>
+
+          <button className="sheet-done" onClick={() => setSheet(null)}>
+            Done
+          </button>
+        </Sheet>
+      )}
+
+      {sheet === "meta" && (
+        <Sheet title="Edit game details" subtitle={gameName(eff)} onClose={() => setSheet(null)}>
+          <MetaEditor
+            game={eff}
+            onSave={async (m) => {
+              await store.setMeta(game.date, m);
+              reload();
+              setSheet(null);
+            }}
+          />
+        </Sheet>
+      )}
     </div>
   );
 }
 
-function RosterCol({ title, cls, members, guestsByHost, looseGuests = [], muted }) {
+function Sheet({ title, subtitle, onClose, children }) {
+  // Lock body scroll + close on Escape while the sheet is open.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
   return (
-    <div className={`roster-col roster-${cls} ${muted ? "muted-col" : ""}`}>
-      <div className="roster-title">
-        {title} <span className="roster-count">{members.length}</span>
+    <div className="backdrop" onClick={onClose}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-grab" />
+        <h2 className="sheet-title">{title}</h2>
+        <div className="sheet-sub">{subtitle}</div>
+        {children}
       </div>
-      <ul>
-        {members.map((m) => (
-          <li key={m.id}>
-            {m.name}
-            {guestsByHost &&
-              guestsByHost(m.id).map((g) => (
-                <span key={g.id} className="li-guest">
-                  +{g.name}
-                </span>
-              ))}
-          </li>
-        ))}
-        {looseGuests.map((g) => (
-          <li key={g.id} className="li-guest-row">
-            {g.name} <span className="li-guest">guest of {g.hostName}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
 
-function MetaEditor({ game, onSave, onDone }) {
+function GuestBlock({ guests, onAdd, onRemove }) {
+  const [name, setName] = useState("");
+  return (
+    <div className="guest2">
+      <div className="guest2-title">🎉 Bringing a guest?</div>
+      <form
+        className="guest2-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onAdd(name);
+          setName("");
+        }}
+      >
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Guest name…" aria-label="Guest name" />
+        <button type="submit">+ Add</button>
+      </form>
+      {guests.length > 0 && (
+        <div className="guest2-chips">
+          {guests.map((g) => (
+            <span key={g.id} className="guest2-chip">
+              {g.name}
+              <button onClick={() => onRemove(g.id)} aria-label={`Remove ${g.name}`}>
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetaEditor({ game, onSave }) {
   const [time, setTime] = useState(game.time);
   const [location, setLocation] = useState(game.location);
   const [note, setNote] = useState(game.note || "");
   return (
     <form
-      className="meta-editor"
+      className="meta-editor2"
       onSubmit={(e) => {
         e.preventDefault();
         onSave({ time, location, note: note.trim() || null });
-        onDone();
       }}
     >
       <label>
@@ -307,12 +379,9 @@ function MetaEditor({ game, onSave, onDone }) {
         Note (optional)
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. moved to turf field" />
       </label>
-      <div className="meta-actions">
-        <button type="submit">Save changes</button>
-        <button type="button" className="link-btn" onClick={onDone}>
-          Cancel
-        </button>
-      </div>
+      <button className="sheet-done" type="submit">
+        Save changes
+      </button>
     </form>
   );
 }

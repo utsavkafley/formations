@@ -56,11 +56,37 @@ alter table public.votes     enable row level security;
 alter table public.guests    enable row level security;
 alter table public.game_meta enable row level security;
 
+drop policy if exists "anon all votes"  on public.votes;
+drop policy if exists "anon all guests" on public.guests;
+drop policy if exists "anon all meta"   on public.game_meta;
 create policy "anon all votes"  on public.votes     for all using (true) with check (true);
 create policy "anon all guests" on public.guests    for all using (true) with check (true);
 create policy "anon all meta"   on public.game_meta for all using (true) with check (true);
 
--- Live updates for the poll (realtime subscription in store.js).
-alter publication supabase_realtime add table public.votes;
-alter publication supabase_realtime add table public.guests;
-alter publication supabase_realtime add table public.game_meta;
+-- Live updates for the poll (realtime subscription in store.js). Wrapped so the
+-- whole file stays safe to re-run once a table is already in the publication.
+do $$ begin alter publication supabase_realtime add table public.votes;     exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.guests;    exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.game_meta; exception when duplicate_object then null; end $$;
+
+-- ---- Peer-sourced player feedback (Phase 1: collection) ----
+-- One row per (rater, subject, game). Anonymous: rater_id is stored only to
+-- de-dupe / limit spam and is never surfaced in the UI. This block is safe to
+-- re-run on an existing project.
+create table if not exists public.player_feedback (
+  id          text        primary key,
+  subject_id  text        not null,           -- core member id being rated
+  rater_id    text        not null,           -- core member id giving feedback
+  game_date   text        not null,           -- the shared past game
+  performance text        not null check (performance in ('ok', 'good', 'great')),
+  strengths   text[]      not null default '{}',
+  created_at  timestamptz not null default now(),
+  unique (rater_id, subject_id, game_date)
+);
+
+create index if not exists feedback_subject_idx on public.player_feedback (subject_id);
+
+alter table public.player_feedback enable row level security;
+
+drop policy if exists "anon all feedback" on public.player_feedback;
+create policy "anon all feedback" on public.player_feedback for all using (true) with check (true);

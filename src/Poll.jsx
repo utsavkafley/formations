@@ -3,6 +3,7 @@ import store, { hasRemote } from "./store.js";
 import { getNextGame, applyMeta, prettyDate, prettyTime, gameName } from "./schedule.js";
 import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD } from "./squad.js";
+import { STRENGTHS } from "./strengths.js";
 
 export default function Poll({ onNavigate }) {
   const game = useMemo(() => getNextGame(), []);
@@ -11,7 +12,8 @@ export default function Poll({ onNavigate }) {
   const [data, setData] = useState({ votes: {}, guests: [], meta: null });
   const [loading, setLoading] = useState(true);
   const [connError, setConnError] = useState(false);
-  const [sheet, setSheet] = useState(null); // null | "vote" | "meta"
+  const [sheet, setSheet] = useState(null); // null | "vote" | "meta" | "feedback"
+  const [feedbackTarget, setFeedbackTarget] = useState(null); // {subjectId, subjectName, gameDate}
   const autoOpened = useRef(false);
 
   const eff = applyMeta(game, data.meta);
@@ -80,6 +82,68 @@ export default function Poll({ onNavigate }) {
   async function removeGuest(id) {
     await store.removeGuest(game.date, id);
     reload();
+  }
+
+  // Pick a co-attendee of a past game the rater played in, whom they haven't
+  // rated for that game yet. Biases toward the least-rated player to spread
+  // coverage. Returns null when there's nothing sensible to ask.
+  async function pickFeedbackTarget() {
+    const games = await store.fetchAttendedGames(me.id, game.date);
+    if (!games.length) return null;
+    const all = await store.fetchAllFeedback();
+    const counts = {};
+    const ratedByMe = new Set();
+    for (const r of all) {
+      counts[r.subject_id] = (counts[r.subject_id] || 0) + 1;
+      if (r.rater_id === me.id) ratedByMe.add(`${r.subject_id}|${r.game_date}`);
+    }
+    for (const g of games) {
+      const attendees = await store.fetchAttendees(g);
+      const eligible = attendees.filter(
+        (a) => a.memberId !== me.id && !ratedByMe.has(`${a.memberId}|${g}`),
+      );
+      if (eligible.length) {
+        eligible.sort(
+          (a, b) => (counts[a.memberId] || 0) - (counts[b.memberId] || 0) || Math.random() - 0.5,
+        );
+        const pick = eligible[0];
+        return { subjectId: pick.memberId, subjectName: pick.memberName, gameDate: g };
+      }
+    }
+    return null;
+  }
+
+  // Called when the RSVP sheet's "Done" is tapped. At most one feedback prompt
+  // per poll (per device); otherwise just close.
+  async function finishRsvp() {
+    const askedKey = `yolo.feedbackAsked.${game.date}`;
+    if (!me || localStorage.getItem(askedKey)) {
+      setSheet(null);
+      return;
+    }
+    try {
+      const target = await pickFeedbackTarget();
+      if (target) {
+        localStorage.setItem(askedKey, "1");
+        setFeedbackTarget(target);
+        setSheet("feedback");
+        return;
+      }
+    } catch {
+      /* feedback is best-effort — never block closing the RSVP */
+    }
+    setSheet(null);
+  }
+
+  async function submitFeedback({ performance, strengths }) {
+    await store.addFeedback({
+      subjectId: feedbackTarget.subjectId,
+      raterId: me.id,
+      gameDate: feedbackTarget.gameDate,
+      performance,
+      strengths,
+    });
+    setSheet(null);
   }
 
   const rsvpLabel =
@@ -236,10 +300,18 @@ export default function Poll({ onNavigate }) {
             />
           )}
 
-          <button className="sheet-done" onClick={() => setSheet(null)}>
+          <button className="sheet-done" onClick={finishRsvp}>
             Done
           </button>
         </Sheet>
+      )}
+
+      {sheet === "feedback" && feedbackTarget && (
+        <FeedbackSheet
+          subjectName={feedbackTarget.subjectName}
+          onClose={() => setSheet(null)}
+          onSubmit={submitFeedback}
+        />
       )}
 
       {sheet === "meta" && (
@@ -280,6 +352,57 @@ function Sheet({ title, subtitle, onClose, children }) {
         {children}
       </div>
     </div>
+  );
+}
+
+const PERF = [
+  { key: "ok", label: "Ok" },
+  { key: "good", label: "Good" },
+  { key: "great", label: "Great" },
+];
+
+function FeedbackSheet({ subjectName, onClose, onSubmit }) {
+  const [perf, setPerf] = useState(null);
+  const [picked, setPicked] = useState([]);
+  const toggle = (k) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
+
+  return (
+    <Sheet title="Quick rating" subtitle={`Help balance teams — how did ${subjectName} play?`} onClose={onClose}>
+      <label className="field-label">{subjectName}'s performance</label>
+      <div className="perf-row">
+        {PERF.map((p) => (
+          <button
+            key={p.key}
+            className={`perf-pill ${p.key} ${perf === p.key ? "on" : ""}`}
+            onClick={() => setPerf(p.key)}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <label className="field-label" style={{ marginTop: 20 }}>
+        Strengths <span className="field-opt">· optional, tap any</span>
+      </label>
+      <div className="strength-pills">
+        {STRENGTHS.map((s) => (
+          <button
+            key={s.key}
+            className={`strength-pill ${picked.includes(s.key) ? "on" : ""}`}
+            onClick={() => toggle(s.key)}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <button className="sheet-done" disabled={!perf} onClick={() => onSubmit({ performance: perf, strengths: picked })}>
+        Submit rating
+      </button>
+      <button className="sheet-skip" onClick={onClose}>
+        Skip
+      </button>
+    </Sheet>
   );
 }
 

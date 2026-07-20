@@ -11,6 +11,10 @@
 //   removeGuest(date, guestId)
 //   setMeta(date, {time, location, note})
 //   subscribe(date, cb)                      -> unsubscribe()
+//   addFeedback({subjectId, raterId, gameDate, performance, strengths})
+//   fetchAttendedGames(memberId, beforeDate) -> [gameDate] desc
+//   fetchAttendees(gameDate)                 -> [{memberId, memberName}] (status in)
+//   fetchAllFeedback()                       -> [row]
 //
 // Shape:
 //   votes: { [memberId]: { status: 'in'|'out', name, deviceId } }
@@ -125,6 +129,42 @@ const remote = {
     );
   },
 
+  // ---- Peer feedback (Phase 1) ----
+  async addFeedback({ subjectId, raterId, gameDate, performance, strengths }) {
+    const id = `${raterId}|${subjectId}|${gameDate}`; // deterministic → re-answers upsert
+    const { error } = await supabase.from("player_feedback").upsert(
+      { id, subject_id: subjectId, rater_id: raterId, game_date: gameDate, performance, strengths },
+      { onConflict: "id" },
+    );
+    if (error) throw new Error(error.message);
+  },
+  async fetchAttendedGames(memberId, beforeDate) {
+    const { data, error } = await supabase
+      .from("votes")
+      .select("game_date")
+      .eq("member_id", memberId)
+      .eq("status", "in")
+      .lt("game_date", beforeDate)
+      .order("game_date", { ascending: false })
+      .limit(6);
+    if (error) throw new Error(error.message);
+    return (data || []).map((r) => r.game_date);
+  },
+  async fetchAttendees(gameDate) {
+    const { data, error } = await supabase
+      .from("votes")
+      .select("member_id, member_name")
+      .eq("game_date", gameDate)
+      .eq("status", "in");
+    if (error) throw new Error(error.message);
+    return (data || []).map((r) => ({ memberId: r.member_id, memberName: r.member_name }));
+  },
+  async fetchAllFeedback() {
+    const { data, error } = await supabase.from("player_feedback").select("*");
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+
   subscribe(date, cb) {
     const filter = `game_date=eq.${date}`;
     const ch = supabase
@@ -142,6 +182,16 @@ const remote = {
  * ------------------------------------------------------------------ */
 const LOCAL_EVT = "yolo-store-change";
 const localKey = (date) => `yolo.game.${date}`;
+const FEEDBACK_KEY = "yolo.feedback.v1";
+const GAME_PREFIX = "yolo.game.";
+
+function readFeedback() {
+  try {
+    return JSON.parse(localStorage.getItem(FEEDBACK_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
 
 function readLocal(date) {
   try {
@@ -190,6 +240,42 @@ const local = {
     const d = readLocal(date);
     d.meta = { ...(d.meta || {}), slotId, kickoffAt, opensAt, status: "open", openedManually: true };
     writeLocal(date, d);
+  },
+  // ---- Peer feedback (Phase 1) ----
+  async addFeedback({ subjectId, raterId, gameDate, performance, strengths }) {
+    const id = `${raterId}|${subjectId}|${gameDate}`;
+    const rows = readFeedback().filter((r) => r.id !== id);
+    rows.push({ id, subject_id: subjectId, rater_id: raterId, game_date: gameDate, performance, strengths, created_at: new Date().toISOString() });
+    localStorage.setItem(FEEDBACK_KEY, JSON.stringify(rows));
+  },
+  async fetchAttendedGames(memberId, beforeDate) {
+    const games = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(GAME_PREFIX)) continue;
+      const date = k.slice(GAME_PREFIX.length);
+      if (date >= beforeDate) continue;
+      try {
+        const d = JSON.parse(localStorage.getItem(k));
+        if (d?.votes?.[memberId]?.status === "in") games.push(date);
+      } catch {
+        /* skip */
+      }
+    }
+    return games.sort().reverse().slice(0, 6);
+  },
+  async fetchAttendees(gameDate) {
+    try {
+      const d = JSON.parse(localStorage.getItem(localKey(gameDate))) || {};
+      return Object.entries(d.votes || {})
+        .filter(([, v]) => v.status === "in")
+        .map(([id, v]) => ({ memberId: id, memberName: v.name }));
+    } catch {
+      return [];
+    }
+  },
+  async fetchAllFeedback() {
+    return readFeedback();
   },
   subscribe(date, cb) {
     const onLocal = (e) => {

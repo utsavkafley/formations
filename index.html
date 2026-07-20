@@ -5,17 +5,20 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         <title>Pickup — Next game RSVP</title>
 
-        <!-- Static link-preview fallback. For crawlers, the Vercel Edge
-             Middleware (middleware.js) overrides these with the live next game
-             + tally, e.g. "Pickup · Thu, Jul 23 · Pleasant Park · 7:30 PM". -->
+        <!-- Link-preview tags. middleware.js swaps the generic title/description
+             for the live next game ("Pickup · Thu, Jul 23 · …") on every request,
+             and /api/og renders the preview image. These are the static fallback. -->
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="YOLO Formation" />
         <meta property="og:title" content="Pickup — Next game RSVP" />
-        <meta
-            property="og:description"
-            content="Tap to mark yourself IN or OUT for the next pickup game."
-        />
-        <meta name="twitter:card" content="summary" />
+        <meta property="og:description" content="Tap to mark yourself IN or OUT for the next pickup game." />
+        <meta property="og:image" content="/api/og" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Pickup — Next game RSVP" />
+        <meta name="twitter:description" content="Tap to mark yourself IN or OUT for the next pickup game." />
+        <meta name="twitter:image" content="/api/og" />
         <meta name="theme-color" content="#0a0e13" />
     </head>
     <body>

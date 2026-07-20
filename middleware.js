@@ -1,40 +1,35 @@
 // Vercel Edge Middleware — dynamic link previews for the shared root URL.
 //
-// When a chat app / crawler unfurls https://<your-app>/, we return HTML whose
-// Open Graph tags name the next game with live counts, e.g.
-//   "Pickup · Thu, Jul 23 · Pleasant Park · 7:30 PM"  /  "12 in · 3 out — tap to RSVP"
-// Real browsers fall straight through to the SPA (next()), so humans are
-// unaffected. Reads the same VITE_SUPABASE_* env vars you already set in Vercel
-// (they're available to the runtime here regardless of the VITE_ prefix).
+// For every request to "/", we fetch the built index.html and swap the generic
+// OG title/description/image for ones naming the next game, e.g.
+//   "Pickup · Thu, Jul 23 · Pleasant Park · 7:30 PM"
+// Injecting for *all* user-agents (not just detected bots) means every chat app
+// and preview tool gets the right card, while humans still receive the full
+// working SPA (only <head> meta is touched). Any failure falls through to the
+// unmodified app, so this can't take the site down.
 import { next } from "@vercel/edge";
 
 export const config = { matcher: "/" };
 
 const TZ = process.env.TEAM_TZ || "America/New_York";
 const SLOTS = [
-  { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park", label: "Thu" },
-  { id: "sun", weekday: 0, time: "18:30", location: "Thomas Brooks Park", label: "Sun" },
+  { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park" },
+  { id: "sun", weekday: 0, time: "18:30", location: "Thomas Brooks Park" },
 ];
 const GRACE = 3 * 60 * 60 * 1000;
 const DAY = 24 * 60 * 60 * 1000;
 const LEAD = 2;
 
-// Crawlers that fetch a page just to build a link preview.
-const BOT =
-  /facebookexternalhit|Twitterbot|Slackbot|WhatsApp|Discordbot|TelegramBot|LinkedInBot|Pinterest|redditbot|Googlebot|bingbot|SkypeUriPreview|vkShare|Applebot|embedly|Iframely|opengraph|MetaInspector|facebot/i;
+const tzNow = () => new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
+const ymd = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-function tzNow() {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: TZ }));
-}
-function ymd(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 function nextGame() {
   const from = tzNow();
   const cands = SLOTS.map((s) => {
-    const [h, m] = s.time.split(":").map(Number);
+    const [hh, mm] = s.time.split(":").map(Number);
     const d = new Date(from);
-    d.setHours(h, m, 0, 0);
+    d.setHours(hh, mm, 0, 0);
     let add = (s.weekday - d.getDay() + 7) % 7;
     if (add === 0 && d.getTime() + GRACE <= from.getTime()) add = 7;
     d.setDate(d.getDate() + add);
@@ -44,75 +39,48 @@ function nextGame() {
   const { slot, when } = cands[0];
   return { slot, date: ymd(when), when, opensAt: new Date(when.getTime() - LEAD * DAY) };
 }
-function prettyTime(t) {
-  const [h, m] = t.split(":").map(Number);
-  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
-}
-function prettyDay(d) {
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: TZ });
-}
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
+const prettyTime = (t) => {
+  const [hh, mm] = t.split(":").map(Number);
+  return `${hh % 12 || 12}:${String(mm).padStart(2, "0")} ${hh >= 12 ? "PM" : "AM"}`;
+};
+const shortDay = (d) =>
+  d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: TZ });
+const esc = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// The exact strings baked into index.html that we replace at the edge.
+const GEN_TITLE = "Pickup — Next game RSVP";
+const GEN_DESC = "Tap to mark yourself IN or OUT for the next pickup game.";
 
 export default async function middleware(request) {
-  const ua = request.headers.get("user-agent") || "";
-  if (!BOT.test(ua)) return next(); // humans → the real app
+  try {
+    const origin = new URL(request.url).origin;
+    // Fetch the static shell (matcher only covers "/", so this doesn't recurse).
+    const res = await fetch(`${origin}/index.html`, { headers: { "x-og": "1" } });
+    if (!res.ok) return next();
+    let html = await res.text();
 
-  const g = nextGame();
-  const url = process.env.VITE_SUPABASE_URL;
-  const key = process.env.VITE_SUPABASE_ANON_KEY;
+    const g = nextGame();
+    const open = Date.now() >= g.opensAt.getTime();
+    const title = `Pickup · ${shortDay(g.when)} · ${g.slot.location} · ${prettyTime(g.slot.time)}`;
+    const desc = open
+      ? "Tap to mark yourself IN or OUT for the next pickup game."
+      : `RSVP opens ${shortDay(g.opensAt)} — tap to see the next game.`;
+    const img = `${origin}/api/og`;
 
-  let meta = null;
-  let inCount = 0;
-  let outCount = 0;
-  let guestCount = 0;
-  if (url && key) {
-    try {
-      const headers = { apikey: key, Authorization: `Bearer ${key}` };
-      const [vr, gr, mr] = await Promise.all([
-        fetch(`${url}/rest/v1/votes?select=status&game_date=eq.${g.date}`, { headers }),
-        fetch(`${url}/rest/v1/guests?select=id&game_date=eq.${g.date}`, { headers }),
-        fetch(`${url}/rest/v1/game_meta?select=time,location,note,opened_manually&game_date=eq.${g.date}`, { headers }),
-      ]);
-      const votes = await vr.json();
-      const guests = await gr.json();
-      const metas = await mr.json();
-      if (Array.isArray(votes)) {
-        inCount = votes.filter((v) => v.status === "in").length;
-        outCount = votes.filter((v) => v.status === "out").length;
-      }
-      if (Array.isArray(guests)) guestCount = guests.length;
-      if (Array.isArray(metas) && metas[0]) meta = metas[0];
-    } catch {
-      // fall back to schedule-only preview
-    }
+    // Exact-string swaps: match → replace, miss → no-op (never corrupts the doc).
+    html = html
+      .replaceAll(GEN_TITLE, esc(title))
+      .replaceAll(GEN_DESC, esc(desc))
+      .replaceAll('content="/api/og"', `content="${esc(img)}"`);
+
+    return new Response(html, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "public, max-age=120",
+      },
+    });
+  } catch {
+    return next();
   }
-
-  const time = meta?.time || g.slot.time;
-  const location = meta?.location || g.slot.location;
-  const open = Boolean(meta?.opened_manually) || Date.now() >= g.opensAt.getTime();
-
-  const title = `Pickup · ${prettyDay(g.when)} · ${location} · ${prettyTime(time)}`;
-  const desc = open
-    ? `${inCount + guestCount} in · ${outCount} out — tap to mark yourself IN or OUT` +
-      (meta?.note ? ` (${meta.note})` : "")
-    : `RSVP opens ${prettyDay(g.opensAt)} — tap to see the next game`;
-  const origin = new URL(request.url).origin;
-
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"/>
-<title>${esc(title)}</title>
-<meta property="og:type" content="website"/>
-<meta property="og:site_name" content="YOLO Formation"/>
-<meta property="og:title" content="${esc(title)}"/>
-<meta property="og:description" content="${esc(desc)}"/>
-<meta property="og:url" content="${esc(origin)}/"/>
-<meta name="twitter:card" content="summary"/>
-<meta name="twitter:title" content="${esc(title)}"/>
-<meta name="twitter:description" content="${esc(desc)}"/>
-</head><body>${esc(title)} — ${esc(desc)}</body></html>`;
-
-  return new Response(html, {
-    headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=60" },
-  });
 }

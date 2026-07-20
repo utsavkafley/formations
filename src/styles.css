@@ -1049,6 +1049,7 @@ h3 {
     from { opacity: 0; }
 }
 .sheet {
+    position: relative;
     width: 100%;
     max-width: 540px;
     background: var(--panel);
@@ -1364,4 +1365,26 @@ h3 {
     opacity: 0.5;
     cursor: default;
     filter: none;
+}
+
+.sheet-x {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sheet-x:hover {
+    color: var(--text);
+    border-color: var(--muted);
 }

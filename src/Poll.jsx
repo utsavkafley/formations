@@ -37,6 +37,12 @@ export default function Poll({ onNavigate }) {
   }, [game.date, reload]);
 
   const myVote = me ? data.votes[me.id]?.status : null;
+  // Mirror of the current vote, kept in a ref so closeVote() reads a fresh value
+  // even if the sheet is closed in the same tick as tapping "I'm IN".
+  const voteRef = useRef(myVote);
+  useEffect(() => {
+    voteRef.current = myVote;
+  }, [myVote]);
 
   // Prompt to vote on arrival — once — if there's no reply yet.
   useEffect(() => {
@@ -60,6 +66,7 @@ export default function Poll({ onNavigate }) {
 
   async function vote(status) {
     if (!me) return;
+    voteRef.current = status; // synchronous, so closeVote sees IN immediately
     await store.setVote(game.date, { memberId: me.id, memberName: me.name, status, deviceId });
     if (status === "out") {
       const mine = data.guests.filter((g) => g.hostMemberId === me.id);
@@ -113,24 +120,23 @@ export default function Poll({ onNavigate }) {
     return null;
   }
 
-  // Called when the RSVP sheet's "Done" is tapped. At most one feedback prompt
-  // per poll (per device); otherwise just close.
-  async function finishRsvp() {
+  // Runs whenever the RSVP sheet closes (Done, ✕, Escape, or backdrop). If the
+  // member is IN, prompt once per poll to rate a teammate from a past game;
+  // otherwise just close. Never blocks closing.
+  async function closeVote() {
     const askedKey = `yolo.feedbackAsked.${game.date}`;
-    if (!me || localStorage.getItem(askedKey)) {
-      setSheet(null);
-      return;
-    }
-    try {
-      const target = await pickFeedbackTarget();
-      if (target) {
-        localStorage.setItem(askedKey, "1");
-        setFeedbackTarget(target);
-        setSheet("feedback");
-        return;
+    if (voteRef.current === "in" && me && !localStorage.getItem(askedKey)) {
+      try {
+        const target = await pickFeedbackTarget();
+        if (target) {
+          localStorage.setItem(askedKey, "1");
+          setFeedbackTarget(target);
+          setSheet("feedback");
+          return;
+        }
+      } catch {
+        /* feedback is best-effort — never block closing the RSVP */
       }
-    } catch {
-      /* feedback is best-effort — never block closing the RSVP */
     }
     setSheet(null);
   }
@@ -262,7 +268,7 @@ export default function Poll({ onNavigate }) {
       </div>
 
       {sheet === "vote" && (
-        <Sheet title="You in?" subtitle={gameName(eff)} onClose={() => setSheet(null)}>
+        <Sheet title="You in?" subtitle={gameName(eff)} onClose={closeVote}>
           <label className="field-label">You are</label>
           <select className="select" value={me?.id || ""} onChange={(e) => pickMe(e.target.value)}>
             <option value="" disabled>
@@ -300,7 +306,7 @@ export default function Poll({ onNavigate }) {
             />
           )}
 
-          <button className="sheet-done" onClick={finishRsvp}>
+          <button className="sheet-done" onClick={closeVote}>
             Done
           </button>
         </Sheet>
@@ -347,6 +353,9 @@ function Sheet({ title, subtitle, onClose, children }) {
     <div className="backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
+        <button className="sheet-x" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
         <h2 className="sheet-title">{title}</h2>
         <div className="sheet-sub">{subtitle}</div>
         {children}

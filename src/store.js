@@ -63,8 +63,11 @@ const remote = {
     return { votes, guests, meta };
   },
 
+  // NOTE: supabase-js reports failures via `error` instead of rejecting, so
+  // every write must check it — otherwise a flaky connection drops the write
+  // silently and the UI can't tell the user to retry.
   async setVote(date, { memberId, memberName, status, deviceId }) {
-    await supabase.from("votes").upsert(
+    const { error } = await supabase.from("votes").upsert(
       {
         game_date: date,
         member_id: memberId,
@@ -75,10 +78,16 @@ const remote = {
       },
       { onConflict: "game_date,member_id" },
     );
+    if (error) throw new Error(error.message);
   },
 
   async clearVote(date, memberId) {
-    await supabase.from("votes").delete().eq("game_date", date).eq("member_id", memberId);
+    const { error } = await supabase
+      .from("votes")
+      .delete()
+      .eq("game_date", date)
+      .eq("member_id", memberId);
+    if (error) throw new Error(error.message);
   },
 
   async addGuest(date, { name, hostMemberId, hostName, deviceId }) {
@@ -90,19 +99,22 @@ const remote = {
       host_name: hostName,
       device_id: deviceId,
     };
-    await supabase.from("guests").insert(row);
+    const { error } = await supabase.from("guests").insert(row);
+    if (error) throw new Error(error.message);
     return { id: row.id, name, hostMemberId, hostName, deviceId };
   },
 
   async removeGuest(date, guestId) {
-    await supabase.from("guests").delete().eq("id", guestId);
+    const { error } = await supabase.from("guests").delete().eq("id", guestId);
+    if (error) throw new Error(error.message);
   },
 
   async setMeta(date, { time, location, note }) {
-    await supabase.from("game_meta").upsert(
+    const { error } = await supabase.from("game_meta").upsert(
       { game_date: date, time, location, note, updated_at: new Date().toISOString() },
       { onConflict: "game_date" },
     );
+    if (error) throw new Error(error.message);
   },
 
   // ---- Peer feedback (Phase 1) ----

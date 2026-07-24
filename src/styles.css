@@ -1369,3 +1369,18 @@ h3 {
     color: var(--text);
     border-color: var(--muted);
 }
+
+/* Vote save status inside the RSVP sheet */
+.save-note {
+    margin: 12px 2px 0;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--muted);
+    line-height: 1.5;
+}
+.save-note.ok {
+    color: var(--green-ink);
+}
+.save-note.err {
+    color: var(--coral);
+}

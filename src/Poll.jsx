@@ -13,6 +13,7 @@ export default function Poll({ onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [connError, setConnError] = useState(false);
   const [sheet, setSheet] = useState(null); // null | "vote" | "meta" | "feedback"
+  const [saveState, setSaveState] = useState(null); // null | "saving" | "saved" | "error"
   const [feedbackTarget, setFeedbackTarget] = useState(null); // {subjectId, subjectName, gameDate}
   const autoOpened = useRef(false);
   const feedbackCount = useRef(0); // ratings submitted this session (chain caps at 3)
@@ -45,13 +46,32 @@ export default function Poll({ onNavigate }) {
     voteRef.current = myVote;
   }, [myVote]);
 
-  // Prompt to vote on arrival — once — if there's no reply yet.
+  // Always open the RSVP sheet on arrival — even for people who already voted —
+  // so re-voting (or retrying after a failed save) is one tap away.
   useEffect(() => {
-    if (!loading && !myVote && !autoOpened.current) {
+    if (!loading && !autoOpened.current) {
       autoOpened.current = true;
       setSheet("vote");
     }
-  }, [loading, myVote]);
+  }, [loading]);
+
+  // Stale-tab guard: phones keep tabs alive for days, but `game` is computed at
+  // mount — a vote cast through last week's page would land on the OLD game's
+  // date and be invisible on the current poll. When the tab resumes (or time
+  // passes) and the next game has rolled over, hard-reload onto the fresh poll.
+  useEffect(() => {
+    const check = () => {
+      if (getNextGame().date !== game.date) window.location.reload();
+    };
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    const id = setInterval(check, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+      clearInterval(id);
+    };
+  }, [game.date]);
 
   const roster = CORE_SQUAD;
   const inList = roster.filter((m) => data.votes[m.id]?.status === "in");
@@ -67,29 +87,45 @@ export default function Poll({ onNavigate }) {
 
   async function vote(status) {
     if (!me) return;
-    voteRef.current = status; // synchronous, so closeVote sees IN immediately
-    await store.setVote(game.date, { memberId: me.id, memberName: me.name, status, deviceId });
-    if (status === "out") {
-      const mine = data.guests.filter((g) => g.hostMemberId === me.id);
-      await Promise.all(mine.map((g) => store.removeGuest(game.date, g.id)));
+    setSaveState("saving");
+    try {
+      await store.setVote(game.date, { memberId: me.id, memberName: me.name, status, deviceId });
+      // Only mark the vote once the DB confirmed it — a failed save must not
+      // pretend it worked (or trigger the feedback prompt).
+      voteRef.current = status;
+      if (status === "out") {
+        const mine = data.guests.filter((g) => g.hostMemberId === me.id);
+        await Promise.all(mine.map((g) => store.removeGuest(game.date, g.id)));
+      }
+      await reload();
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
     }
-    reload();
   }
 
   async function addGuest(name) {
     if (!name.trim() || !me) return;
-    await store.addGuest(game.date, {
-      name: name.trim(),
-      hostMemberId: me.id,
-      hostName: me.name,
-      deviceId,
-    });
-    reload();
+    try {
+      await store.addGuest(game.date, {
+        name: name.trim(),
+        hostMemberId: me.id,
+        hostName: me.name,
+        deviceId,
+      });
+      reload();
+    } catch {
+      setSaveState("error");
+    }
   }
 
   async function removeGuest(id) {
-    await store.removeGuest(game.date, id);
-    reload();
+    try {
+      await store.removeGuest(game.date, id);
+      reload();
+    } catch {
+      setSaveState("error");
+    }
   }
 
   // Pick a co-attendee of a past game the rater played in, whom they haven't
@@ -279,7 +315,13 @@ export default function Poll({ onNavigate }) {
       </div>
 
       <div className="rsvp-bar">
-        <button className={`rsvp-btn ${myVote || "none"}`} onClick={() => setSheet("vote")}>
+        <button
+          className={`rsvp-btn ${myVote || "none"}`}
+          onClick={() => {
+            setSaveState(null);
+            setSheet("vote");
+          }}
+        >
           {rsvpLabel}
         </button>
       </div>
@@ -314,6 +356,18 @@ export default function Poll({ onNavigate }) {
               🚫 Can’t make it
             </button>
           </div>
+
+          {saveState === "saving" && <p className="save-note">Saving…</p>}
+          {saveState === "saved" && (
+            <p className="save-note ok">
+              ✅ Saved — you’re {myVote === "in" ? "IN" : "OUT"} for {prettyDate(game.date)}.
+            </p>
+          )}
+          {saveState === "error" && (
+            <p className="save-note err">
+              ⚠️ Couldn’t save — check your connection and tap your choice again.
+            </p>
+          )}
 
           {myVote === "in" && (
             <GuestBlock

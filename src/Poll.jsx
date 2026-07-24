@@ -210,6 +210,11 @@ export default function Poll({ onNavigate }) {
     : myVote === "out" ? "🚫 You're OUT · tap to change"
     : "Tap to RSVP";
 
+  function openVoteSheet() {
+    setSaveState(null);
+    setSheet("vote");
+  }
+
   return (
     <div className="poll">
       <div className="poll-shell">
@@ -228,6 +233,9 @@ export default function Poll({ onNavigate }) {
             <span className="chip">📍 {eff.location}</span>
           </div>
           {eff.note && <div className="hero-note">ℹ️ {eff.note}</div>}
+          <button className={`hero-rsvp ${myVote || "none"}`} onClick={openVoteSheet}>
+            {myVote ? rsvpLabel : "👋 Tap to RSVP — you in?"}
+          </button>
           <button className="hero-edit" onClick={() => setSheet("meta")}>
             Edit time / location
           </button>
@@ -315,13 +323,7 @@ export default function Poll({ onNavigate }) {
       </div>
 
       <div className="rsvp-bar">
-        <button
-          className={`rsvp-btn ${myVote || "none"}`}
-          onClick={() => {
-            setSaveState(null);
-            setSheet("vote");
-          }}
-        >
+        <button className={`rsvp-btn ${myVote || "none"}`} onClick={openVoteSheet}>
           {rsvpLabel}
         </button>
       </div>

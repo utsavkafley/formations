@@ -46,10 +46,31 @@ function suggestArea(strengths) {
   return best && best[1] > 0 ? best[0] : null;
 }
 
-// Human label for a skill average, for later profile/roster display.
-export function skillLabel(skill) {
-  if (skill == null) return "Unrated";
-  if (skill >= 1.75) return "Standout";
-  if (skill >= 1.3) return "Solid";
-  return "Casual";
+// Keep only ratings from the last `days`. Rows missing a timestamp are kept
+// rather than silently dropped.
+export function filterWindow(rows, days) {
+  if (!days) return rows || [];
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return (rows || []).filter((r) => {
+    const t = Date.parse(r.created_at);
+    return Number.isNaN(t) || t >= cutoff;
+  });
+}
+
+// The standouts for a window: an honour, not a tier. Deliberately scarce —
+// roughly the top 10% of everyone rated in that window.
+//
+// Guards that keep it meaningful rather than an artefact of thin data:
+//   minRatings — one lucky "Great" shouldn't crown anybody
+//   minPool    — with almost nobody rated, "top 10%" is noise, so crown no one
+export function selectStandouts(profiles, { pct = 0.1, minRatings = 3, minPool = 5 } = {}) {
+  const rated = Object.entries(profiles || {});
+  if (rated.length < minPool) return [];
+  const eligible = rated.filter(([, p]) => p.ratingsCount >= minRatings);
+  if (!eligible.length) return [];
+  const count = Math.max(1, Math.ceil(rated.length * pct));
+  return eligible
+    .sort(([, a], [, b]) => b.skill - a.skill || b.ratingsCount - a.ratingsCount)
+    .slice(0, count)
+    .map(([id]) => id);
 }

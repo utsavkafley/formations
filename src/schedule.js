@@ -10,6 +10,19 @@ export const SLOTS = [
 // the organizer) still land on today's poll rather than jumping to next week.
 const GRACE_MS = 3 * 60 * 60 * 1000;
 
+// Every device must agree on which game is "next", because `date` is the key
+// votes are stored under. Computing that from the device's own timezone means a
+// phone set to another zone lands in a DIFFERENT bucket — its owner sees their
+// own vote while the group never does. So resolve "now" in the team's timezone
+// (matching lib/edge-schedule.js) instead of the device's.
+export const TEAM_TZ = "America/New_York";
+
+// A Date whose fields read as team-local wall-clock time. Formatting it without
+// a timeZone option gives those same fields back, so display stays correct.
+function teamNow(now = new Date()) {
+  return new Date(now.toLocaleString("en-US", { timeZone: TEAM_TZ }));
+}
+
 function ymd(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -32,7 +45,8 @@ function nextOccurrence(slot, from) {
 // The closest upcoming game across all slots. `date` (local YYYY-MM-DD) is the
 // stable key used to group votes/guests in the store.
 export function getNextGame(now = new Date()) {
-  const cands = SLOTS.map((slot) => ({ slot, when: nextOccurrence(slot, now) }));
+  const from = teamNow(now);
+  const cands = SLOTS.map((slot) => ({ slot, when: nextOccurrence(slot, from) }));
   cands.sort((a, b) => a.when - b.when);
   const { slot, when } = cands[0];
   return {
@@ -58,6 +72,17 @@ export function applyMeta(game, meta) {
     time: meta.time || game.time,
     location: meta.location || game.location,
     note: meta.note || null,
+  };
+}
+
+// Weekday and month/day separately, so the hero can break the line on purpose
+// instead of wrapping mid-date.
+export function dateParts(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return {
+    weekday: dt.toLocaleDateString(undefined, { weekday: "long" }),
+    monthDay: dt.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
   };
 }
 

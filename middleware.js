@@ -41,7 +41,9 @@ export default async function middleware(request) {
     return new Response(html, {
       headers: {
         "content-type": "text/html; charset=utf-8",
-        "cache-control": "public, max-age=120",
+        // Always revalidate the shell so a phone can't keep running a stale
+        // bundle for days (hashed assets stay immutable and cached).
+        "cache-control": "public, max-age=0, must-revalidate",
       },
     });
   } catch {

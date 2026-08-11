@@ -67,18 +67,26 @@ const remote = {
   // every write must check it — otherwise a flaky connection drops the write
   // silently and the UI can't tell the user to retry.
   async setVote(date, { memberId, memberName, status, deviceId }) {
-    const { error } = await supabase.from("votes").upsert(
-      {
-        game_date: date,
-        member_id: memberId,
-        member_name: memberName,
-        status,
-        device_id: deviceId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "game_date,member_id" },
-    );
-    if (error) throw new Error(error.message);
+    // Votes are the one write we can't afford to lose, and phones on park wifi
+    // drop requests routinely — retry a couple of times before giving up.
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 400 * attempt));
+      const { error } = await supabase.from("votes").upsert(
+        {
+          game_date: date,
+          member_id: memberId,
+          member_name: memberName,
+          status,
+          device_id: deviceId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "game_date,member_id" },
+      );
+      if (!error) return;
+      lastError = error;
+    }
+    throw new Error(lastError?.message || "vote failed to save");
   },
 
   async clearVote(date, memberId) {

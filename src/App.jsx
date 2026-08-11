@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import Poll from "./Poll.jsx";
 import Builder from "./Builder.jsx";
+import Players from "./Players.jsx";
 
 // Tiny path router (no dependency). `/` is the shareable poll landing so link
 // previews in group chats point at the next game's RSVP; `/build` is the
-// organizer's formation tool.
+// formation tool and `/players` shows the crowd-sourced profiles.
 function viewFor(pathname) {
-  return pathname.replace(/\/+$/, "") === "/build" ? "build" : "poll";
+  const path = pathname.replace(/\/+$/, "");
+  if (path === "/build") return "build";
+  if (path === "/players") return "players";
+  return "poll";
 }
 
 export default function App() {
@@ -24,5 +28,7 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
-  return view === "build" ? <Builder onNavigate={navigate} /> : <Poll onNavigate={navigate} />;
+  if (view === "build") return <Builder onNavigate={navigate} />;
+  if (view === "players") return <Players onNavigate={navigate} />;
+  return <Poll onNavigate={navigate} />;
 }

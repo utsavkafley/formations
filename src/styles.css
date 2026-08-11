@@ -734,61 +734,56 @@ h3 {
 .hero-kicker {
     font-size: 12px;
     font-weight: 800;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--green);
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 
 .hero-title {
     margin: 0;
-    font-size: clamp(28px, 8vw, 38px);
+    font-size: clamp(36px, 11vw, 52px);
     font-weight: 800;
+    letter-spacing: -0.035em;
+}
+/* Weekday on its own line — a deliberate break beats an awkward wrap. */
+.hero-title span {
+    display: block;
 }
 
-.hero-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 14px;
-}
-
-.chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 12px;
-    border-radius: 999px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    font-size: 14px;
+.hero-when {
+    margin-top: 10px;
+    font-size: clamp(17px, 4.6vw, 20px);
     font-weight: 600;
+    color: var(--muted);
 }
 
 .hero-note {
     margin-top: 12px;
-    font-size: 13.5px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--amber);
-    display: flex;
-    gap: 7px;
 }
 
+/* Discreet corner affordance — organizers know it's there, nobody else has to
+   read past it. */
 .hero-edit {
-    margin-top: 16px;
-    background: none;
-    border: none;
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel);
     color: var(--muted);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 14px;
+    line-height: 1;
     cursor: pointer;
-    padding: 0;
-    text-decoration: underline;
-    text-underline-offset: 3px;
 }
 .hero-edit:hover {
     color: var(--text);
+    border-color: var(--muted);
 }
 
 /* ---- Tally ---- */
@@ -808,18 +803,17 @@ h3 {
 
 .stat b {
     display: block;
-    font-size: 28px;
+    font-size: 36px;
     font-weight: 800;
     line-height: 1;
+    letter-spacing: -0.03em;
 }
 
 .stat span {
     display: block;
-    margin-top: 5px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
     color: var(--muted);
 }
 
@@ -841,27 +835,14 @@ h3 {
     border-radius: var(--r-lg);
     padding: 14px 16px;
 }
-.roster-block + .roster-block {
-    margin-top: 10px;
-}
 
 .roster-block h3 {
-    margin: 0 0 12px;
-    font-size: 12px;
+    margin: 0 0 14px;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.roster-block h3 .count {
-    color: var(--text);
-    background: var(--panel-2);
-    border-radius: 999px;
-    padding: 1px 9px;
-    font-size: 12px;
 }
 .roster-block.in h3 {
     color: var(--green);
@@ -880,11 +861,11 @@ h3 {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
+    padding: 8px 14px;
     border-radius: 999px;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    font-size: 13.5px;
+    font-size: 15.5px;
     font-weight: 600;
 }
 .roster-block.in .namechip {
@@ -896,18 +877,17 @@ h3 {
     border-color: rgba(251, 191, 36, 0.3);
     color: var(--amber);
 }
-.namechip .you {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    color: var(--green);
-    background: rgba(34, 197, 94, 0.18);
-    padding: 1px 6px;
-    border-radius: 999px;
-    text-transform: uppercase;
+/* Your own chip is outlined so you can spot yourself — and notice instantly if
+   the app is remembering the wrong person. */
+.namechip.mine {
+    box-shadow: 0 0 0 2px var(--green);
+}
+.namechips.quiet .namechip {
+    color: var(--muted);
+    font-size: 14.5px;
 }
 .roster-empty {
-    font-size: 13px;
+    font-size: 15px;
     color: var(--muted);
 }
 
@@ -1439,4 +1419,118 @@ h3 {
     .hero-rsvp.none {
         animation: none;
     }
+}
+
+/* ---- Collapsed "haven't replied" list ---- */
+.disclosure {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--muted);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.disclosure:hover {
+    color: var(--text);
+}
+.disclosure .caret {
+    font-size: 10px;
+    opacity: 0.7;
+}
+.disclosure + .namechips {
+    margin-top: 14px;
+}
+
+/* ---- Footer links ---- */
+.foot-links {
+    display: flex;
+    gap: 10px;
+}
+.foot-links button {
+    flex: 1;
+    padding: 14px 10px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--muted);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.foot-links button:hover {
+    border-color: var(--green);
+    color: var(--green);
+}
+
+/* ---- Players page ---- */
+.page-head {
+    padding: 4px 2px 8px;
+}
+.back {
+    background: none;
+    border: none;
+    padding: 0 0 14px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.back:hover {
+    color: var(--text);
+}
+
+.player-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 18px;
+}
+.player-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+.player-name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+.player-skill {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+}
+.player-skill.standout {
+    color: var(--green);
+}
+.player-skill.solid {
+    color: var(--green-ink);
+}
+.player-sub {
+    margin: 4px 0 14px;
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 600;
+}
+.namechip.strength {
+    background: var(--panel-2);
+    border-color: var(--line);
+    font-size: 14px;
+}
+.namechip.strength .tick {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--green);
 }

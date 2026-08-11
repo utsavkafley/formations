@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import store, { hasRemote } from "./store.js";
-import { getNextGame, applyMeta, prettyDate, prettyTime, gameName } from "./schedule.js";
+import { getNextGame, applyMeta, prettyDate, prettyTime, gameName, dateParts } from "./schedule.js";
 import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD } from "./squad.js";
 import { STRENGTHS } from "./strengths.js";
@@ -14,27 +14,29 @@ export default function Poll({ onNavigate }) {
   const [connError, setConnError] = useState(false);
   const [sheet, setSheet] = useState(null); // null | "vote" | "meta" | "feedback"
   const [saveState, setSaveState] = useState(null); // null | "saving" | "saved" | "error"
-  const [feedbackTarget, setFeedbackTarget] = useState(null); // {subjectId, subjectName, gameDate}
+  const [feedbackTarget, setFeedbackTarget] = useState(null);
+  const [showAll, setShowAll] = useState(false);
   const autoOpened = useRef(false);
+  const recovered = useRef(false);
   const feedbackCount = useRef(0); // ratings submitted this session (chain caps at 3)
 
   const eff = applyMeta(game, data.meta);
+  const pendingKey = `yolo.pendingVote.${game.date}`;
 
   const reload = useCallback(async () => {
-    try {
-      const d = await store.fetchGame(game.date);
-      setData(d);
-      setConnError(false);
-    } catch {
-      setConnError(true);
-    } finally {
-      setLoading(false);
-    }
+    const d = await store.fetchGame(game.date);
+    setData(d);
+    setConnError(false);
+    setLoading(false);
+    return d;
   }, [game.date]);
 
   useEffect(() => {
-    reload();
-    const unsub = store.subscribe(game.date, reload);
+    reload().catch(() => {
+      setConnError(true);
+      setLoading(false);
+    });
+    const unsub = store.subscribe(game.date, () => reload().catch(() => {}));
     return () => unsub();
   }, [game.date, reload]);
 
@@ -57,8 +59,7 @@ export default function Poll({ onNavigate }) {
 
   // Stale-tab guard: phones keep tabs alive for days, but `game` is computed at
   // mount — a vote cast through last week's page would land on the OLD game's
-  // date and be invisible on the current poll. When the tab resumes (or time
-  // passes) and the next game has rolled over, hard-reload onto the fresh poll.
+  // date. When the tab resumes and the next game has rolled over, reload.
   useEffect(() => {
     const check = () => {
       if (getNextGame().date !== game.date) window.location.reload();
@@ -73,6 +74,55 @@ export default function Poll({ onNavigate }) {
     };
   }, [game.date]);
 
+  // Save a vote and prove it landed: a write that "succeeds" but isn't in the
+  // DB afterwards is exactly the failure people reported, so re-read and
+  // verify. On any failure the choice is parked in localStorage and retried on
+  // the next visit, so a dead connection can't silently swallow an RSVP.
+  const saveVote = useCallback(
+    async (status, member) => {
+      let lastError;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await store.setVote(game.date, {
+            memberId: member.id,
+            memberName: member.name,
+            status,
+            deviceId,
+          });
+          const fresh = await reload();
+          if (fresh.votes[member.id]?.status === status) {
+            localStorage.removeItem(pendingKey);
+            return fresh;
+          }
+          lastError = new Error("vote did not persist");
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      localStorage.setItem(pendingKey, JSON.stringify({ id: member.id, name: member.name, status }));
+      throw lastError;
+    },
+    [game.date, deviceId, reload, pendingKey],
+  );
+
+  // A vote parked by a failed save gets retried once, quietly, on next load.
+  useEffect(() => {
+    if (loading || connError || recovered.current) return;
+    const raw = localStorage.getItem(pendingKey);
+    if (!raw) return;
+    recovered.current = true;
+    try {
+      const p = JSON.parse(raw);
+      if (p?.id && data.votes[p.id]?.status !== p.status) {
+        saveVote(p.status, { id: p.id, name: p.name }).catch(() => {});
+      } else {
+        localStorage.removeItem(pendingKey);
+      }
+    } catch {
+      localStorage.removeItem(pendingKey);
+    }
+  }, [loading, connError, data.votes, pendingKey, saveVote]);
+
   const roster = CORE_SQUAD;
   const inList = roster.filter((m) => data.votes[m.id]?.status === "in");
   const outList = roster.filter((m) => data.votes[m.id]?.status === "out");
@@ -83,21 +133,20 @@ export default function Poll({ onNavigate }) {
     const member = roster.find((m) => m.id === id);
     setMe(member);
     setMeState(member ? { id: member.id, name: member.name } : null);
+    setSaveState(null);
   }
 
   async function vote(status) {
     if (!me) return;
     setSaveState("saving");
     try {
-      await store.setVote(game.date, { memberId: me.id, memberName: me.name, status, deviceId });
-      // Only mark the vote once the DB confirmed it — a failed save must not
-      // pretend it worked (or trigger the feedback prompt).
+      await saveVote(status, me);
       voteRef.current = status;
       if (status === "out") {
         const mine = data.guests.filter((g) => g.hostMemberId === me.id);
         await Promise.all(mine.map((g) => store.removeGuest(game.date, g.id)));
+        await reload();
       }
-      await reload();
       setSaveState("saved");
     } catch {
       setSaveState("error");
@@ -113,7 +162,7 @@ export default function Poll({ onNavigate }) {
         hostName: me.name,
         deviceId,
       });
-      reload();
+      await reload();
     } catch {
       setSaveState("error");
     }
@@ -122,7 +171,7 @@ export default function Poll({ onNavigate }) {
   async function removeGuest(id) {
     try {
       await store.removeGuest(game.date, id);
-      reload();
+      await reload();
     } catch {
       setSaveState("error");
     }
@@ -158,8 +207,7 @@ export default function Poll({ onNavigate }) {
   }
 
   // Runs whenever the RSVP sheet closes (Done, ✕, Escape, or backdrop). If the
-  // member is IN, prompt once per poll to rate a teammate from a past game;
-  // otherwise just close. Never blocks closing.
+  // member is IN, prompt once per poll to rate a teammate from a past game.
   async function closeVote() {
     const askedKey = `yolo.feedbackAsked.${game.date}`;
     if (voteRef.current === "in" && me && !localStorage.getItem(askedKey)) {
@@ -179,9 +227,8 @@ export default function Poll({ onNavigate }) {
     setSheet(null);
   }
 
-  // Save the rating, then chain to the next eligible teammate (selection
-  // naturally excludes anyone already rated) — up to 3 per session so the ask
-  // stays light. Any failure just ends the chain.
+  // Save the rating, then chain to the next eligible teammate — up to 3 per
+  // session so the ask stays light. Any failure just ends the chain.
   async function submitFeedback({ performance, strengths }) {
     await store.addFeedback({
       subjectId: feedbackTarget.subjectId,
@@ -205,126 +252,126 @@ export default function Poll({ onNavigate }) {
     setSheet(null);
   }
 
-  const rsvpLabel =
-    myVote === "in" ? "✅ You're IN · tap to change"
-    : myVote === "out" ? "🚫 You're OUT · tap to change"
-    : "Tap to RSVP";
-
   function openVoteSheet() {
     setSaveState(null);
     setSheet("vote");
   }
+
+  // The name is part of the label on purpose: if someone's device is remembering
+  // the wrong person, their own status line is where they'll notice it.
+  const statusLabel =
+    myVote === "in" ? `${me?.name} · You're IN`
+    : myVote === "out" ? `${me?.name} · You're OUT`
+    : "Tap to RSVP";
 
   return (
     <div className="poll">
       <div className="poll-shell">
         {connError && hasRemote && (
           <div className="conn-banner" role="alert">
-            ⚠️ Can’t reach the database — RSVPs won’t save right now. The project may be
-            paused or its keys aren’t set. Retrying automatically.
+            Can’t reach the server — your RSVP won’t save yet. It’ll retry automatically.
           </div>
         )}
 
         <header className="hero">
-          <div className="hero-kicker">Pickup · Next game</div>
-          <h1 className="hero-title">{prettyDate(game.date)}</h1>
-          <div className="hero-meta">
-            <span className="chip">🕕 {prettyTime(eff.time)}</span>
-            <span className="chip">📍 {eff.location}</span>
-          </div>
-          {eff.note && <div className="hero-note">ℹ️ {eff.note}</div>}
-          <button className={`hero-rsvp ${myVote || "none"}`} onClick={openVoteSheet}>
-            {myVote ? rsvpLabel : "👋 Tap to RSVP — you in?"}
+          <button className="hero-edit" onClick={() => setSheet("meta")} aria-label="Edit game details">
+            ✎
           </button>
-          <button className="hero-edit" onClick={() => setSheet("meta")}>
-            Edit time / location
+          <div className="hero-kicker">Next game</div>
+          <h1 className="hero-title">
+            <span>{dateParts(game.date).weekday}</span>
+            {dateParts(game.date).monthDay}
+          </h1>
+          <div className="hero-when">
+            {prettyTime(eff.time)} · {eff.location}
+          </div>
+          {eff.note && <div className="hero-note">{eff.note}</div>}
+          <button className={`hero-rsvp ${myVote || "none"}`} onClick={openVoteSheet}>
+            {myVote ? statusLabel : "Tap to RSVP"}
           </button>
         </header>
 
         <div className="tally">
           <div className="stat stat-in">
             <b>{totalIn}</b>
-            <span>In</span>
+            <span>in</span>
           </div>
           <div className="stat stat-out">
             <b>{outList.length}</b>
-            <span>Out</span>
+            <span>out</span>
           </div>
           <div className="stat">
             <b>{noResp.length}</b>
-            <span>No reply</span>
+            <span>no reply</span>
           </div>
         </div>
 
-        <section>
-              <div className="roster-block in">
-                <h3>
-                  Going <span className="count">{totalIn}</span>
-                </h3>
-                {totalIn === 0 ? (
-                  <div className="roster-empty">Nobody yet — be the first.</div>
-                ) : (
-                  <div className="namechips">
-                    {inList.map((m) => (
-                      <span key={m.id} className="namechip">
-                        {m.name}
-                        {me?.id === m.id && <span className="you">you</span>}
-                      </span>
-                    ))}
-                    {data.guests.map((g) => (
-                      <span key={g.id} className="namechip guest" title={`Guest of ${g.hostName}`}>
-                        {g.name} +1
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {outList.length > 0 && (
-                <div className="roster-block out">
-                  <h3>
-                    Can’t make it <span className="count">{outList.length}</span>
-                  </h3>
-                  <div className="namechips">
-                    {outList.map((m) => (
-                      <span key={m.id} className="namechip">
-                        {m.name}
-                        {me?.id === m.id && <span className="you">you</span>}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="roster-block">
-                <h3>
-                  No reply <span className="count">{noResp.length}</span>
-                </h3>
-                <div className="namechips">
-                  {noResp.map((m) => (
-                    <span key={m.id} className="namechip" style={{ opacity: 0.6 }}>
-                      {m.name}
-                      {me?.id === m.id && <span className="you">you</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
+        <section className="roster-block in">
+          <h3>Going</h3>
+          {totalIn === 0 ? (
+            <div className="roster-empty">Nobody yet — be the first.</div>
+          ) : (
+            <div className="namechips">
+              {inList.map((m) => (
+                <span key={m.id} className={`namechip ${me?.id === m.id ? "mine" : ""}`}>
+                  {m.name}
+                </span>
+              ))}
+              {data.guests.map((g) => (
+                <span key={g.id} className="namechip guest" title={`Guest of ${g.hostName}`}>
+                  {g.name} +1
+                </span>
+              ))}
+            </div>
+          )}
         </section>
 
-        <button className="build-cta" onClick={() => onNavigate("/build")}>
-          Organizer → balance teams &amp; build formation
-        </button>
+        {outList.length > 0 && (
+          <section className="roster-block out">
+            <h3>Out</h3>
+            <div className="namechips">
+              {outList.map((m) => (
+                <span key={m.id} className={`namechip ${me?.id === m.id ? "mine" : ""}`}>
+                  {m.name}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {noResp.length > 0 && (
+          <section className="roster-block">
+            <button className="disclosure" onClick={() => setShowAll((v) => !v)}>
+              {noResp.length} haven’t replied
+              <span className="caret">{showAll ? "▲" : "▼"}</span>
+            </button>
+            {showAll && (
+              <div className="namechips quiet">
+                {noResp.map((m) => (
+                  <span key={m.id} className={`namechip ${me?.id === m.id ? "mine" : ""}`}>
+                    {m.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        <nav className="foot-links">
+          <button onClick={() => onNavigate("/players")}>Player profiles</button>
+          <button onClick={() => onNavigate("/build")}>Balance teams</button>
+        </nav>
 
         {!hasRemote && (
           <div className="local-warn">
-            ⚠️ Local-only mode — add Supabase keys to share across devices. See <code>SETUP.md</code>.
+            Local-only mode — add Supabase keys to share across devices.
           </div>
         )}
       </div>
 
       <div className="rsvp-bar">
         <button className={`rsvp-btn ${myVote || "none"}`} onClick={openVoteSheet}>
-          {rsvpLabel}
+          {statusLabel}
         </button>
       </div>
 
@@ -345,29 +392,30 @@ export default function Poll({ onNavigate }) {
           <div className="vote2">
             <button
               className={`v-btn in ${myVote === "in" ? "on" : ""}`}
-              disabled={!me}
+              disabled={!me || saveState === "saving"}
               onClick={() => vote("in")}
             >
-              ✅ I’m IN
+              I’m IN
             </button>
             <button
               className={`v-btn out ${myVote === "out" ? "on" : ""}`}
-              disabled={!me}
+              disabled={!me || saveState === "saving"}
               onClick={() => vote("out")}
             >
-              🚫 Can’t make it
+              Can’t make it
             </button>
           </div>
 
           {saveState === "saving" && <p className="save-note">Saving…</p>}
           {saveState === "saved" && (
             <p className="save-note ok">
-              ✅ Saved — you’re {myVote === "in" ? "IN" : "OUT"} for {prettyDate(game.date)}.
+              Saved — {me?.name} is {myVote === "in" ? "IN" : "OUT"} for {prettyDate(game.date)}.
             </p>
           )}
           {saveState === "error" && (
             <p className="save-note err">
-              ⚠️ Couldn’t save — check your connection and tap your choice again.
+              Couldn’t reach the server. Your choice is saved on this phone and will be sent
+              automatically — or tap again once you have signal.
             </p>
           )}
 
@@ -401,7 +449,7 @@ export default function Poll({ onNavigate }) {
             game={eff}
             onSave={async (m) => {
               await store.setMeta(game.date, m);
-              reload();
+              await reload();
               setSheet(null);
             }}
           />
@@ -474,7 +522,7 @@ function FeedbackSheet({ subjectName, chained, onClose, onSubmit }) {
       </div>
 
       <label className="field-label" style={{ marginTop: 20 }}>
-        Strengths <span className="field-opt">· optional, tap any</span>
+        Strengths <span className="field-opt">· optional</span>
       </label>
       <div className="strength-pills">
         {STRENGTHS.map((s) => (
@@ -502,7 +550,7 @@ function GuestBlock({ guests, onAdd, onRemove }) {
   const [name, setName] = useState("");
   return (
     <div className="guest2">
-      <div className="guest2-title">🎉 Bringing a guest?</div>
+      <div className="guest2-title">Bringing a guest?</div>
       <form
         className="guest2-form"
         onSubmit={(e) => {
@@ -512,7 +560,7 @@ function GuestBlock({ guests, onAdd, onRemove }) {
         }}
       >
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Guest name…" aria-label="Guest name" />
-        <button type="submit">+ Add</button>
+        <button type="submit">Add</button>
       </form>
       {guests.length > 0 && (
         <div className="guest2-chips">

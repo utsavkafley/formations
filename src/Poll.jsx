@@ -357,8 +357,8 @@ export default function Poll({ onNavigate }) {
           </section>
         )}
 
+        {/* Player profiles live at /feature/profiles — unlisted for now. */}
         <nav className="foot-links">
-          <button onClick={() => onNavigate("/players")}>Player profiles</button>
           <button onClick={() => onNavigate("/build")}>Balance teams</button>
         </nav>
 

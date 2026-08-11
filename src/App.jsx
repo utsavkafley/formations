@@ -5,11 +5,12 @@ import Players from "./Players.jsx";
 
 // Tiny path router (no dependency). `/` is the shareable poll landing so link
 // previews in group chats point at the next game's RSVP; `/build` is the
-// formation tool and `/players` shows the crowd-sourced profiles.
+// formation tool. `/feature/profiles` is the crowd-sourced player profiles —
+// unlisted for now, so it's reachable by URL but not linked from the UI.
 function viewFor(pathname) {
   const path = pathname.replace(/\/+$/, "");
   if (path === "/build") return "build";
-  if (path === "/players") return "players";
+  if (path === "/feature/profiles") return "players";
   return "poll";
 }
 

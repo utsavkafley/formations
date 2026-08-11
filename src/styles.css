@@ -1676,3 +1676,115 @@ h3 {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+/* ---- Rating sheet: sections keep 24 pills scannable ---- */
+.strength-group {
+    margin-top: 14px;
+}
+.strength-group-title {
+    margin: 0 0 8px 2px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* ---- Profiles: squad list + one detail graph ---- */
+.squad-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.squad-pick {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    padding: 11px 14px;
+    border-radius: var(--r-md);
+    border: 1px solid transparent;
+    background: var(--panel);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.squad-pick:hover {
+    border-color: var(--line);
+}
+.squad-pick.on {
+    background: var(--green-soft);
+    border-color: rgba(34, 197, 94, 0.45);
+}
+.squad-pick.off {
+    background: none;
+    cursor: default;
+    opacity: 0.45;
+}
+.pick-name {
+    font-size: 16px;
+    font-weight: 700;
+}
+.pick-style {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.squad-pick.on .pick-style {
+    color: var(--green);
+}
+
+.profile-detail {
+    min-width: 0;
+}
+.style-tag {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--green);
+    white-space: nowrap;
+}
+.detail-note {
+    margin: 12px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+}
+.other-title {
+    margin: 20px 0 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* On phones a tall nested list would bury the graph, so the squad becomes a
+   horizontal strip above it — rated players first. */
+@media (max-width: 899px) {
+    .squad-col {
+        flex-direction: row;
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 0 0 8px;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+    }
+    .squad-pick {
+        flex: 0 0 auto;
+        width: auto;
+        scroll-snap-align: start;
+        border-color: var(--line);
+    }
+    .squad-pick.off {
+        border-color: transparent;
+    }
+}

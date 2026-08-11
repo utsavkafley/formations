@@ -3,7 +3,7 @@ import store, { hasRemote } from "./store.js";
 import { getNextGame, applyMeta, prettyDate, prettyTime, gameName, dateParts } from "./schedule.js";
 import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD } from "./squad.js";
-import { STRENGTHS } from "./strengths.js";
+import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
 export default function Poll({ onNavigate }) {
   const game = useMemo(() => getNextGame(), []);
@@ -524,17 +524,22 @@ function FeedbackSheet({ subjectName, chained, onClose, onSubmit }) {
       <label className="field-label" style={{ marginTop: 20 }}>
         Strengths <span className="field-opt">· optional</span>
       </label>
-      <div className="strength-pills">
-        {STRENGTHS.map((s) => (
-          <button
-            key={s.key}
-            className={`strength-pill ${picked.includes(s.key) ? "on" : ""}`}
-            onClick={() => toggle(s.key)}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      {STRENGTH_GROUPS.map((group) => (
+        <div key={group} className="strength-group">
+          <div className="strength-group-title">{group}</div>
+          <div className="strength-pills">
+            {STRENGTHS.filter((s) => s.group === group).map((s) => (
+              <button
+                key={s.key}
+                className={`strength-pill ${picked.includes(s.key) ? "on" : ""}`}
+                onClick={() => toggle(s.key)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
 
       <button className="sheet-done" disabled={!perf} onClick={() => onSubmit({ performance: perf, strengths: picked })}>
         Submit rating

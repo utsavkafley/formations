@@ -57,6 +57,124 @@ export function filterWindow(rows, days) {
   });
 }
 
+// Playstyle archetypes — deliberately broad, because this is pickup: nobody
+// here is a regista. Each one's `spokes` are the skills that style is *supposed*
+// to have, so charting them shows a player what they're not yet applauded for,
+// not just what they're already good at. `area` doubles as the comparison group.
+export const ARCHETYPES = [
+  {
+    key: "finisher",
+    label: "Finisher",
+    area: "ATT",
+    blurb: "Plays on the shoulder and puts chances away.",
+    spokes: ["finishing", "off_ball", "composure", "first_touch", "pace", "heading"],
+  },
+  {
+    key: "winger",
+    label: "Winger",
+    area: "ATT",
+    blurb: "Takes people on and gets the ball into the box.",
+    spokes: ["pace", "dribbling", "crossing", "off_ball", "weak_foot", "work_rate"],
+  },
+  {
+    key: "playmaker",
+    label: "Playmaker",
+    area: "MID",
+    blurb: "Sees the pass before anyone else does.",
+    spokes: ["vision", "passing", "long_passing", "first_touch", "composure", "dribbling"],
+  },
+  {
+    key: "engine",
+    label: "Engine",
+    area: "MID",
+    blurb: "Covers every blade of grass and links the game together.",
+    spokes: ["stamina", "work_rate", "pressing", "tackling", "passing", "team_player"],
+  },
+  // Two defensive styles, because stopping people is not one skill: the
+  // front-foot duel-winner who steps out and the back-foot reader who covers.
+  {
+    key: "stopper",
+    label: "Stopper",
+    area: "DEF",
+    blurb: "Steps out, wins the duel, gets there first.",
+    spokes: ["tackling", "physical", "heading", "defending", "pressing", "work_rate"],
+  },
+  {
+    key: "sweeper",
+    label: "Sweeper",
+    area: "DEF",
+    blurb: "Reads it early, covers the space, plays out calmly.",
+    spokes: ["interceptions", "positioning", "composure", "defending", "passing", "communication"],
+  },
+];
+
+// Shown until there's enough signal to claim a style. Neutral spread on purpose.
+export const ALL_ROUNDER = {
+  key: "all_rounder",
+  label: "All-Rounder",
+  area: null,
+  blurb: "Not enough ratings yet to call a style.",
+  spokes: ["passing", "defending", "pace", "stamina", "first_touch", "team_player"],
+};
+
+// How often a skill gets mentioned per rating this player received. Comparable
+// across players regardless of how many ratings they have.
+export function rateOf(profile, key) {
+  if (!profile?.ratingsCount) return 0;
+  const hit = profile.strengths.find((s) => s.key === key);
+  return hit ? hit.count / profile.ratingsCount : 0;
+}
+
+export function countOf(profile, key) {
+  return profile?.strengths.find((s) => s.key === key)?.count ?? 0;
+}
+
+// Best-fitting archetype: the share of this player's strength votes that land on
+// each style's signature skills. Ties go to the style whose skills they've been
+// praised for most broadly, then to declaration order.
+export function assignArchetype(profile, { minRatings = 3 } = {}) {
+  const totalVotes = (profile?.strengths || []).reduce((n, s) => n + s.count, 0);
+  if (!profile || profile.ratingsCount < minRatings || totalVotes === 0) {
+    return { ...ALL_ROUNDER, provisional: true };
+  }
+  const scored = ARCHETYPES.map((a) => {
+    let hit = 0;
+    let spread = 0;
+    for (const key of a.spokes) {
+      const c = countOf(profile, key);
+      hit += c;
+      if (c > 0) spread += 1;
+    }
+    return { archetype: a, score: hit / totalVotes, spread };
+  }).sort((x, y) => y.score - x.score || y.spread - x.spread);
+
+  return { ...scored[0].archetype, provisional: false, fit: scored[0].score };
+}
+
+// The line a player is measured against: everyone playing in the same third of
+// the pitch. Falls back to the whole squad when that group is too small to mean
+// anything — and says so, so the chart never mislabels what it's comparing.
+export function baselineRates(profiles, assignments, { area, minPeers = 2 } = {}) {
+  const ids = Object.keys(profiles || {});
+  const peers = ids.filter((id) => assignments[id]?.area && assignments[id].area === area);
+  const useArea = area && peers.length >= minPeers;
+  const group = useArea ? peers : ids;
+
+  let totalRatings = 0;
+  const totals = {};
+  for (const id of group) {
+    const p = profiles[id];
+    totalRatings += p.ratingsCount;
+    for (const s of p.strengths) totals[s.key] = (totals[s.key] || 0) + s.count;
+  }
+  return {
+    scope: useArea ? "area" : "squad",
+    size: group.length,
+    rate: (key) => (totalRatings ? (totals[key] || 0) / totalRatings : 0),
+  };
+}
+
+// DORMANT — kept for when we decide where standouts belong on the page.
 // The standouts for a window: an honour, not a tier. Deliberately scarce —
 // roughly the top 10% of everyone rated in that window.
 //

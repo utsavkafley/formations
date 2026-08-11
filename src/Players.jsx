@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import store from "./store.js";
 import { CORE_SQUAD } from "./squad.js";
-import { aggregateProfiles, filterWindow, selectStandouts } from "./feedback.js";
+import {
+  aggregateProfiles,
+  filterWindow,
+  assignArchetype,
+  baselineRates,
+  rateOf,
+  countOf,
+} from "./feedback.js";
 import { STRENGTH_LABEL, STRENGTH_SHORT } from "./strengths.js";
 import Radar from "./Radar.jsx";
 
@@ -9,8 +16,6 @@ const WINDOWS = [
   { key: "month", label: "Last month", days: 30 },
   { key: "year", label: "Last year", days: 365 },
 ];
-const AXES = 6; // spokes per web — enough shape to read at a glance
-const NAME = Object.fromEntries(CORE_SQUAD.map((m) => [m.id, m.name]));
 
 // What the group has volunteered, aggregated. Ratings stay anonymous: only
 // blended results are shown, never who said what.
@@ -18,6 +23,7 @@ export default function Players({ onNavigate }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(false);
   const [win, setWin] = useState("month");
+  const [picked, setPicked] = useState(null);
 
   useEffect(() => {
     store
@@ -28,38 +34,43 @@ export default function Players({ onNavigate }) {
 
   const days = WINDOWS.find((w) => w.key === win).days;
 
-  const { profiles, standouts, squadRate } = useMemo(() => {
+  const { profiles, assignments } = useMemo(() => {
     const p = aggregateProfiles(filterWindow(rows || [], days));
-    // Squad baseline: how often each skill gets mentioned per rating given, so
-    // a player with 10 ratings isn't mechanically "bigger" than one with 3.
-    let totalRatings = 0;
-    const totals = {};
-    for (const prof of Object.values(p)) {
-      totalRatings += prof.ratingsCount;
-      for (const s of prof.strengths) totals[s.key] = (totals[s.key] || 0) + s.count;
-    }
-    return {
-      profiles: p,
-      standouts: new Set(selectStandouts(p)),
-      squadRate: (key) => (totalRatings ? (totals[key] || 0) / totalRatings : 0),
-    };
+    const a = {};
+    for (const [id, prof] of Object.entries(p)) a[id] = assignArchetype(prof);
+    return { profiles: p, assignments: a };
   }, [rows, days]);
 
-  const ratedIds = Object.keys(profiles).sort(
-    (a, b) => profiles[b].ratingsCount - profiles[a].ratingsCount ||
-      (NAME[a] || a).localeCompare(NAME[b] || b),
-  );
+  const rated = CORE_SQUAD.filter((m) => profiles[m.id]);
   const unrated = CORE_SQUAD.filter((m) => !profiles[m.id]);
-  const totalRatings = Object.values(profiles).reduce((n, p) => n + p.ratingsCount, 0);
 
-  const axesFor = (id) =>
-    profiles[id].strengths.slice(0, AXES).map((s) => ({
-      key: s.key,
-      label: STRENGTH_SHORT[s.key] || s.key,
-      count: s.count,
-      value: s.count / profiles[id].ratingsCount,
-      baseline: squadRate(s.key),
-    }));
+  // Derive rather than sync: switching timeframe can drop the picked player out
+  // of the window, so fall back instead of leaving a dead selection.
+  const activeId = picked && profiles[picked] ? picked : rated[0]?.id || null;
+  const profile = activeId ? profiles[activeId] : null;
+  const style = activeId ? assignments[activeId] : null;
+
+  const baseline = useMemo(
+    () => (style ? baselineRates(profiles, assignments, { area: style.area }) : null),
+    [profiles, assignments, style],
+  );
+
+  const axes =
+    profile && style
+      ? style.spokes.map((key) => ({
+          key,
+          label: STRENGTH_SHORT[key] || key,
+          count: countOf(profile, key),
+          value: rateOf(profile, key),
+          baseline: baseline.rate(key),
+        }))
+      : [];
+
+  // Skills they've been praised for that aren't part of their style — worth
+  // showing so nothing they earned disappears off the chart.
+  const otherStrengths = profile
+    ? profile.strengths.filter((s) => !style.spokes.includes(s.key))
+    : [];
 
   return (
     <div className="poll">
@@ -69,11 +80,6 @@ export default function Players({ onNavigate }) {
             ← Back
           </button>
           <h1 className="hero-title">Players</h1>
-          <div className="hero-when">
-            {rows === null
-              ? "Loading…"
-              : `${totalRatings} rating${totalRatings === 1 ? "" : "s"} · ${Object.keys(profiles).length} rated`}
-          </div>
           <div className="seg" role="tablist">
             {WINDOWS.map((w) => (
               <button
@@ -92,86 +98,86 @@ export default function Players({ onNavigate }) {
         {error && <div className="conn-banner">Couldn’t load ratings — check your connection.</div>}
 
         <div className="profiles-grid">
-          {/* Standouts — the honour, and the only place exact counts appear. */}
-          <aside className="standouts">
-            <h2 className="col-title">Standouts</h2>
-            {standouts.size === 0 ? (
-              <div className="roster-block">
-                <div className="roster-empty">
-                  Not enough ratings in this window yet. Standouts appear once at least 5 players
-                  have been rated, and it takes 3+ ratings to be in the running.
-                </div>
+          <aside className="squad-col">
+            {rated.map((m) => (
+              <button
+                key={m.id}
+                className={`squad-pick ${activeId === m.id ? "on" : ""}`}
+                onClick={() => setPicked(m.id)}
+              >
+                <span className="pick-name">{m.name}</span>
+                <span className="pick-style">{assignments[m.id].label}</span>
+              </button>
+            ))}
+            {unrated.map((m) => (
+              <div key={m.id} className="squad-pick off" aria-disabled="true">
+                <span className="pick-name">{m.name}</span>
+                <span className="pick-style">No ratings yet</span>
               </div>
-            ) : (
-              [...standouts].map((id) => (
-                <section key={id} className="player-card standout">
-                  <div className="player-top">
-                    <span className="player-name">{NAME[id] || id}</span>
-                    <span className="player-skill standout">★ Standout</span>
-                  </div>
-                  <div className="player-sub">
-                    {profiles[id].ratingsCount} rating{profiles[id].ratingsCount === 1 ? "" : "s"}
-                    {profiles[id].suggestedArea ? ` · plays ${profiles[id].suggestedArea}` : ""}
-                  </div>
-                  <div className="namechips">
-                    {profiles[id].strengths.map((s) => (
-                      <span key={s.key} className="namechip strength">
-                        {STRENGTH_LABEL[s.key] || s.key}
-                        <b className="tick">{s.count}</b>
-                      </span>
-                    ))}
-                  </div>
-                </section>
-              ))
-            )}
+            ))}
           </aside>
 
-          {/* Everyone rated, standouts included — shape only, no numbers. */}
-          <div className="squad-webs">
-            <h2 className="col-title">The squad</h2>
-            <div className="web-legend">
-              <span>
-                <i /> This player
-              </span>
-              <span>
-                <i className="base" /> Squad average
-              </span>
-            </div>
-            <div className="web-grid">
-              {ratedIds.map((id) => (
-                <section key={id} className="player-card">
-                  <div className="player-top">
-                    <span className="player-name">{NAME[id] || id}</span>
-                    {standouts.has(id) && <span className="player-skill standout">★</span>}
-                  </div>
-                  <Radar
-                    axes={axesFor(id)}
-                    showCounts={standouts.has(id)}
-                    label={`${NAME[id] || id} skill web`}
-                  />
-                </section>
-              ))}
-            </div>
-
-            {rows !== null && ratedIds.length === 0 && (
-              <div className="roster-block">
+          <div className="profile-detail">
+            {!profile ? (
+              <section className="player-card">
                 <div className="roster-empty">
                   No ratings in this window yet. They build up as people RSVP after each game.
                 </div>
-              </div>
-            )}
-
-            {unrated.length > 0 && rows !== null && (
-              <div className="roster-block">
-                <h3>Not rated yet</h3>
-                <div className="namechips quiet">
-                  {unrated.map((m) => (
-                    <span key={m.id} className="namechip">
-                      {m.name}
-                    </span>
-                  ))}
+              </section>
+            ) : (
+              <section className="player-card">
+                <div className="player-top">
+                  <span className="player-name">
+                    {CORE_SQUAD.find((m) => m.id === activeId)?.name || activeId}
+                  </span>
+                  <span className="style-tag">{style.label}</span>
                 </div>
-              </div>
+                <div className="player-sub">
+                  {style.blurb} · {profile.ratingsCount} rating
+                  {profile.ratingsCount === 1 ? "" : "s"}
+                </div>
+
+                <Radar axes={axes} showCounts label={`${style.label} skill web`} />
+
+                <div className="web-legend">
+                  <span>
+                    <i /> This player
+                  </span>
+                  <span>
+                    <i className="base" />{" "}
+                    {baseline.scope === "area"
+                      ? `${style.area} players (${baseline.size})`
+                      : `Squad average (${baseline.size})`}
+                  </span>
+                </div>
+
+                {style.provisional && (
+                  <p className="detail-note">
+                    Needs 3+ ratings before we can call a playstyle — this is a neutral spread for
+                    now.
+                  </p>
+                )}
+                {!style.provisional && (
+                  <p className="detail-note">
+                    Spokes are what a {style.label} is expected to do. Where the line sits inside
+                    the dashed one is what the group hasn’t applauded yet.
+                  </p>
+                )}
+
+                {otherStrengths.length > 0 && (
+                  <>
+                    <h3 className="other-title">Also praised for</h3>
+                    <div className="namechips">
+                      {otherStrengths.map((s) => (
+                        <span key={s.key} className="namechip strength">
+                          {STRENGTH_LABEL[s.key] || s.key}
+                          <b className="tick">{s.count}</b>
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </section>
             )}
           </div>
         </div>

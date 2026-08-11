@@ -29,8 +29,9 @@ const polygon = (values, max, n) =>
 
 export default function Radar({ axes, showCounts = false, label }) {
   const n = axes.length;
-  // A web needs at least a triangle to say anything.
-  if (n < 3) {
+  // A web needs at least a triangle to say anything — both in spokes and in
+  // actual votes, or it collapses into a meaningless sliver.
+  if (n < 3 || axes.filter((a) => a.value > 0).length < 3) {
     return <div className="radar-empty">Needs ratings on a few more skills to chart.</div>;
   }
 

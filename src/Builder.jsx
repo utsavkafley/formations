@@ -3,6 +3,7 @@ import { toPng } from "html-to-image";
 import store from "./store.js";
 import { getNextGame } from "./schedule.js";
 import { CORE_SQUAD } from "./squad.js";
+import Crest from "./Crest.jsx";
 
 const TEAM_COLORS = [
   { name: "Red", value: "#e63946" },
@@ -517,7 +518,10 @@ export default function Builder({ onNavigate }) {
             </button>
           )}
         </div>
-        <h1>Y⚽L⚽ Formation</h1>
+        <h1>
+          <Crest size={28} />
+          YOLO Formation
+        </h1>
 
         <div className="squad-head">
           <span>Squad</span>

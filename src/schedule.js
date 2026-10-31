@@ -91,9 +91,24 @@ function nextOccurrence(slot, from) {
   return null;
 }
 
+// Dev only: set `localStorage.yoloPretendNow` to an ISO date/time and the app
+// treats that as the current moment, so the week's other game can be looked at
+// without waiting for it. `import.meta.env.DEV` is false in a production
+// build, so this folds away to null there.
+function pretendNow() {
+  if (!import.meta.env?.DEV) return null;
+  try {
+    const raw = localStorage.getItem("yoloPretendNow");
+    const at = raw && new Date(raw);
+    return at && !Number.isNaN(at.getTime()) ? at : null;
+  } catch {
+    return null;
+  }
+}
+
 // The closest upcoming game across all slots. `date` (local YYYY-MM-DD) is the
 // stable key used to group votes/guests in the store.
-export function getNextGame(now = new Date()) {
+export function getNextGame(now = pretendNow() || new Date()) {
   const from = teamNow(now);
   const cands = SLOTS.map((slot) => ({ slot, when: nextOccurrence(slot, from) })).filter(
     (c) => c.when,

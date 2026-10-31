@@ -1,10 +1,9 @@
 // Small marks the poll draws inline. All of them inherit color where it makes
 // sense, so a glyph picks up whatever the surrounding text is doing.
 
-// Sun and moon, flat: the same warm amber and cool pale as before, but no
-// gradients, glow or craters — solid shapes only, so they sit on the strip
-// as marks rather than as pictures.
-export function SunIcon({ size = 46, className = "" }) {
+// The sun, flat: warm amber, no gradient or glow — a solid shape, so it sits
+// on the strip as a mark rather than as a picture.
+export function SunIcon({ size = 37, className = "" }) {
   return (
     <svg className={className} viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
       <g fill="#f6ae33">
@@ -17,24 +16,12 @@ export function SunIcon({ size = 46, className = "" }) {
   );
 }
 
-export function MoonIcon({ size = 34, className = "" }) {
-  return (
-    <svg className={className} viewBox="0 0 36 36" width={size} height={size} aria-hidden="true">
-      {/* Crescent: the disc less a second disc offset to its right. */}
-      <path
-        fill="#e6eef1"
-        d="M17 5a13 13 0 1 0 0 26 15.4 15.4 0 0 1 0-26Z"
-      />
-    </svg>
-  );
-}
-
 // The day as a strip: night at one end, daylight at the other, and the sun
-// sitting exactly where one turns into the other. The moon hangs in the dark
-// half, and kickoff is pinned where it actually falls — so a 6:45 game reads
-// as "just after the light arrives" and a 7:30 PM one in November reads as
-// "well into the dark", without anybody doing arithmetic.
-export function DaylightBar({ sunrise, sunset, kickoff, timeLabel, caption }) {
+// sitting exactly where one turns into the other. Kickoff is ticked where it
+// actually falls — so a 6:45 game reads as "just after the light arrives" and
+// a 7:30 PM one in November reads as "well into the dark", without anybody
+// doing arithmetic. The hour itself is written on the line above.
+export function DaylightBar({ sunrise, sunset, kickoff, caption }) {
   const mins = (t) => {
     const [h, m] = t.split(":").map(Number);
     return h * 60 + m;
@@ -54,12 +41,6 @@ export function DaylightBar({ sunrise, sunset, kickoff, timeLabel, caption }) {
 
   const sun = pos(anchor);
   const kickAt = pos(kick);
-  // Out in the dark, not hard against the end of the strip — and pushed
-  // deeper still if kickoff happens to land on top of it.
-  let moon = morning ? sun * 0.42 : sun + (100 - sun) * 0.58;
-  if (Math.abs(moon - kickAt) < 8) moon = morning ? sun * 0.14 : sun + (100 - sun) * 0.88;
-  // Keep it off the rounded caps, where the glyph would hang over the edge.
-  moon = Math.max(9, Math.min(91, moon));
 
   const NIGHT = "#16302e";
   const DUSK = "#24534f";
@@ -77,17 +58,9 @@ export function DaylightBar({ sunrise, sunset, kickoff, timeLabel, caption }) {
     <div className="daylight" role="img" aria-label={caption}>
       <div className="dl-bar" style={{ backgroundImage: `linear-gradient(90deg, ${stops})` }}>
         {showTick && <span className="dl-tick" style={{ left: at(kickAt) }} />}
-        <span className="dl-moon" style={{ left: at(moon) }}>
-          <MoonIcon size={30} />
-        </span>
         <span className="dl-sun" style={{ left: at(sun) }}>
-          <SunIcon size={46} />
+          <SunIcon size={37} />
         </span>
-      </div>
-      {/* Pulled off the ends so the label never hangs over the edge, while the
-          tick above it stays honest. */}
-      <div className="dl-time" style={{ left: `${Math.max(14, Math.min(86, kickAt))}%` }}>
-        {timeLabel}
       </div>
     </div>
   );

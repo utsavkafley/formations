@@ -51,9 +51,11 @@ export async function fetchKickoffWeather({ lat, lon, tz, date, time }, signal) 
   };
 }
 
-// What kind of game to expect, in a few words. The numbers live in the hero's
-// forecast block now, so this is only the verdict. Ordered by what would
-// actually spoil the game: wet ball first, then cold hands, then heat, wind.
+// What kind of game to expect, in a few words. NOT RENDERED at the moment —
+// the hero was cut back to the time and the temperature, and this line went
+// with the rest. Kept whole, and still correct, so putting it back is one
+// line in Poll.jsx. Ordered by what would actually spoil the game: wet ball
+// first, then cold hands, then heat, wind.
 export function matchdayHeadline(w) {
   if (!w) return null;
   const wet = w.kind === "rain" || w.kind === "snow" || w.rainChance >= 55;

@@ -15,7 +15,7 @@ import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD } from "./squad.js";
 import Crest from "./Crest.jsx";
 import { DaylightBar, WeatherMark } from "./Glyphs.jsx";
-import { fetchKickoffWeather, matchdayHeadline } from "./weather.js";
+import { fetchKickoffWeather } from "./weather.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
 // Peer ratings are PAUSED. While this is false the post-RSVP prompt never
@@ -62,7 +62,6 @@ export default function Poll({ onNavigate }) {
       sunrise,
       sunset,
       kickoff: eff.time,
-      timeLabel: prettyTime(eff.time),
       caption: `Kick-off ${prettyTime(eff.time)}, ${dark ? "in the dark" : "in daylight"} — ${turn}`,
     };
   }, [game, eff.time]);
@@ -330,38 +329,29 @@ export default function Poll({ onNavigate }) {
         )}
 
         <header className="hero">
-          <button className="hero-edit" onClick={() => setSheet("meta")} aria-label="Edit game details">
-            ✎
-          </button>
+          {/* Five things, in the order you'd say them out loud: who and when,
+              where, what time and what it'll be like, and the strip that puts
+              that hour in the day. Then the one button. */}
           <div className="hero-brand">
-            <Crest size={58} />
-            <div className="brand-lines">
-              <div className="brand-name">YOLO</div>
-              <div className="hero-kicker">Next game</div>
-            </div>
+            <Crest size={46} />
+            <h1 className="hero-title">YOLO {dateParts(game.date).weekday} Pickup</h1>
           </div>
-          <div className="hero-top">
-            <h1 className="hero-title">
-              <span>{dateParts(game.date).weekday}</span>
-              {dateParts(game.date).monthDay}
-            </h1>
+          <div className="hero-when">
+            <span className="hero-where">@ {eff.location}</span>
+            <button className="hero-edit" onClick={() => setSheet("meta")} aria-label="Edit game details">
+              ✎
+            </button>
+          </div>
+          <div className="hero-clock">
+            <span className="hero-time">{prettyTime(eff.time)}</span>
             {weather && (
-              <div className="hero-wx">
-                <WeatherMark kind={weather.kind} size={34} />
-                <div className="wx-temp">{weather.temp}°</div>
-                <div className="wx-sub">feels {weather.feels}°</div>
-                <div className="wx-sub">{weather.text}</div>
-              </div>
+              <span className="hero-wx">
+                <WeatherMark kind={weather.kind} size={26} />
+                <span className="wx-temp">{weather.temp}°</span>
+              </span>
             )}
           </div>
-          {/* The place reads on its own line; the hour hangs off the daylight
-              strip below it, at the point in the day it actually falls. */}
-          <div className="hero-when">
-            <span className="hero-where">{eff.location}</span>
-            {!sky && <span className="hero-time">{prettyTime(eff.time)}</span>}
-          </div>
           {sky && <DaylightBar {...sky} />}
-          {weather && <div className="hero-advice">{matchdayHeadline(weather)}</div>}
           {eff.note && <div className="hero-note">{eff.note}</div>}
           <button className={`hero-rsvp ${myVote || "none"}`} onClick={openVoteSheet}>
             {myVote ? statusLabel : "Tap to RSVP"}

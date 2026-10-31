@@ -79,7 +79,7 @@ export default function Players({ onNavigate }) {
           <button className="back" onClick={() => onNavigate("/")}>
             ← Back
           </button>
-          <h1 className="hero-title">Players</h1>
+          <h1 className="page-title">Players</h1>
           <div className="seg" role="tablist">
             {WINDOWS.map((w) => (
               <button

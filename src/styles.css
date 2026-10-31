@@ -11,6 +11,8 @@
     --teal-strong: #1d524f; /* hover / pressed */
     --teal-ink: #1d524f; /* small text on white or on a tint */
     --teal-tint: #e9f1f0; /* soft fill */
+    --teal-soft: #6ea8a3; /* the away kit: the same colour worn lighter, still solid enough to read as filled */
+    --kit-line: #7aa29d; /* an empty place on the teamsheet — the palest teal that still holds its own at 30px */
     --teal-edge: #bcd6d3; /* border around a tinted fill */
     --orange: #b85c1a; /* accent · OUT · notices */
     --orange-ink: #8f460f;
@@ -913,6 +915,194 @@ h3 {
 }
 
 /* ---- Tally ---- */
+/* ---- Sides: what the yeses add up to ---- */
+.sides {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
+    padding: 16px 18px 18px;
+}
+
+.sd-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* The card had no label of any kind, which left a grey 5 v 5 looking like a
+   fact rather than something still being reached for. */
+.sd-tag {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--teal);
+}
+.sides.short .sd-tag {
+    color: var(--orange-ink);
+}
+
+/* The format, set like a scoreline: big figures, small lowercase v. Sized well
+   clear of the tally's 36px numbers directly below — at the same size the card
+   read as a fourth tally tile that had wandered up the page. Tabular so it
+   doesn't twitch when 5 v 5 becomes 7 v 7. */
+.sd-format {
+    margin-top: 2px;
+    font-size: clamp(44px, 12.5vw, 52px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    white-space: nowrap;
+    color: var(--teal);
+}
+.sides.short .sd-format {
+    color: var(--muted);
+}
+
+.sd-v {
+    margin: 0 0.14em;
+    font-size: 0.42em;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--muted);
+}
+
+.sd-note {
+    max-width: 48%;
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.3;
+    text-wrap: balance;
+    color: var(--teal-ink);
+}
+.sides.short .sd-note {
+    color: var(--orange-ink);
+}
+
+/* Two lines facing each other across the halfway line, on a tinted pitch. The
+   pitch is what stops the nobody-yet state — the one most first visitors see —
+   from being a white card with ten faint outlines on it, and it gives the
+   empty kit something to be white against. Width tracks the number of places a
+   side, so the pitch, the halfway line and the shirts all end together: a
+   five-a-side row adrift in the middle of a full-width line read as two rows
+   of marks with a rule between them. */
+.sd-rows {
+    position: relative;
+    width: min(100%, calc(var(--slots) * 34px + (var(--slots) - 1) * 4px + 12px));
+    margin: 14px auto 2px;
+    padding: 10px 6px;
+    background: var(--teal-tint);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.sd-rows::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 50%;
+    height: 1px;
+    background: var(--teal-edge);
+}
+
+/* The kickoff spot, which is what makes the hairline read as a halfway line
+   rather than a divider. */
+.sd-rows::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 9px;
+    height: 9px;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--teal-edge);
+    border-radius: 50%;
+    background: var(--teal-tint);
+}
+
+.sd-row {
+    display: grid;
+    grid-template-columns: repeat(var(--slots), 1fr);
+    gap: 4px;
+}
+
+.sd-slot {
+    display: flex;
+    justify-content: center;
+}
+
+/* The places past the format that is already on: the stretch towards the next
+   one, drawn a size down so the block that is complete stays reading as
+   complete. A dashed outline was tried here and read as a torn shape rather
+   than a lighter one — at 30px a dash pattern breaks the hem corners. */
+.sd-slot.stretch .shirt {
+    transform: scale(0.86);
+}
+
+/* The goal line where the format that is already on completes. Its own element
+   rather than a border on the shirt: padding on an <svg> shrinks the drawing
+   inside it. It reaches well past each row so the two halves meet across the
+   halfway line — drawn to the rows alone it was a pair of short stubs with a
+   gap in the middle, which read as a rendering fault rather than a milestone. */
+.sd-slot.ruled {
+    position: relative;
+}
+.sd-slot.ruled::after {
+    content: "";
+    position: absolute;
+    top: -7px;
+    bottom: -7px;
+    right: -2px;
+    width: 1px;
+    background: var(--teal-soft);
+}
+
+.shirt {
+    width: 100%;
+    height: auto;
+}
+.shirt .kit-body {
+    fill: var(--kit);
+    stroke: var(--kit);
+}
+.shirt .kit-collar {
+    stroke: var(--kit-trim);
+}
+/* An empty place is the same shape with nothing in it: white against the
+   pitch, outlined in a tone that actually carries at 30px. Filled against
+   empty is then a difference of kind rather than a step in value — the first
+   try separated them by lightness alone, and the lighter of the two filled
+   kits ended up closer to empty than to its own team. */
+.shirt.kit-empty {
+    --kit: var(--kit-line);
+}
+.shirt.kit-empty .kit-body {
+    fill: var(--panel);
+}
+.shirt.kit-home {
+    --kit: var(--teal);
+    --kit-trim: var(--teal-soft);
+}
+/* The away kit: the same colour worn lighter, so the two rows read as two
+   sides without borrowing the orange that means OUT everywhere else. The
+   collar band carries the pairing a second time, in case the value step alone
+   is lost on a bright screen. */
+/* Light trim on both kits. Inverting it — dark trim on the lighter shirt —
+   made the collar read as a hole bitten out of the shoulder rather than a
+   band, and at 25px a 1.6px dark mark at the neck has no room to explain
+   itself. Light at the neck reads as trim on either colourway. */
+.shirt.kit-away {
+    --kit: var(--teal-soft);
+    --kit-trim: var(--teal-tint);
+}
+
 .tally {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

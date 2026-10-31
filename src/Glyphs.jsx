@@ -66,6 +66,37 @@ export function DaylightBar({ sunrise, sunset, kickoff, caption }) {
   );
 }
 
+// One place on the teamsheet, as a jersey. Everything here is sized for the
+// 29-34px it actually renders at: the art fills its box rather than sitting in
+// 14% padding, the torso is narrower than it is tall so it reads as a kit and
+// not a t-shirt icon, the hem corners are properly round, and the neckline is
+// a scoop you can see rather than a nick. The 2-unit stroke in the kit's own
+// colour rounds every remaining corner and, on an empty place, is the shape.
+// The collar band is the one interior mark there is room for, and it earns its
+// place twice: it keeps the shirt from being a flat silhouette, and it is the
+// second thing separating the home row from the away row.
+export function Shirt({ kit = "empty" }) {
+  return (
+    <svg className={`shirt kit-${kit}`} viewBox="0 0 28 28" aria-hidden="true">
+      <path
+        className="kit-body"
+        strokeWidth="2"
+        strokeLinejoin="round"
+        d="M11.6 3 7.2 4 2.2 7.8 5 14.2l3.3-1.6v12a1.2 1.2 0 0 0 1.2 1.2h9a1.2 1.2 0 0 0 1.2-1.2v-12l3.1 1.6 3-6.4-5-3.8-4.4-1a2.8 2.8 0 0 1-4.8 0Z"
+      />
+      {kit !== "empty" && (
+        <path
+          className="kit-collar"
+          fill="none"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          d="M11.9 3.9a2.6 2.6 0 0 0 4.2 0"
+        />
+      )}
+    </svg>
+  );
+}
+
 // Forecast marks, keyed to the buckets in weather.js.
 export function WeatherMark({ kind, size = 15 }) {
   const common = {

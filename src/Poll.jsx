@@ -12,9 +12,9 @@ import {
   TEAM_TZ,
 } from "./schedule.js";
 import { getDeviceId, getMe, setMe } from "./device.js";
-import { CORE_SQUAD } from "./squad.js";
+import { CORE_SQUAD, SIDE_LADDER } from "./squad.js";
 import Crest from "./Crest.jsx";
-import { DaylightBar, WeatherMark } from "./Glyphs.jsx";
+import { DaylightBar, Shirt, WeatherMark } from "./Glyphs.jsx";
 import { fetchKickoffWeather } from "./weather.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
@@ -358,6 +358,8 @@ export default function Poll({ onNavigate }) {
           </button>
         </header>
 
+        <Sides going={totalIn} />
+
         <div className="tally">
           <div className="stat stat-in">
             <b>{totalIn}</b>
@@ -610,6 +612,71 @@ function FeedbackSheet({ subjectName, chained, onClose, onSubmit }) {
         Skip
       </button>
     </Sheet>
+  );
+}
+
+// What the yeses add up to, as a scoreline: the format they already fill, and
+// the two lines they would make. The empty places are the point — a hole in
+// one of the rows says "we're short" before anybody reads the number beside
+// it. An earlier version of this sat inside the Going block at 14px, where it
+// restated the tally it stood next to; above the tally it answers the question
+// that comes first, which is whether there is a game at all.
+function Sides({ going }) {
+  const top = SIDE_LADDER[SIDE_LADDER.length - 1];
+  const on = [...SIDE_LADDER].reverse().find((s) => going >= s.players);
+  const next = SIDE_LADDER.find((s) => s.players > going);
+  // Draw the format being played for, not the biggest one there is: at two
+  // yeses, nine empty places a side says nothing useful, while five says
+  // exactly what is missing. Past the top format there is nothing left to
+  // chase, so the rows settle on it and any surplus rides on the note.
+  const drawn = next || top;
+  const face = on || next;
+  const note =
+    on && next ? `${next.players - going} more for ${next.perSide} v ${next.perSide}`
+    : on ? "a full squad"
+    : `${next.players - going} more to make it`;
+  const said = on ? `${on.perSide} v ${on.perSide} on` : "short of a game";
+  // A line after the column where the format that is already on completes, and
+  // a lighter treatment on the places past it. Both exist for one moment: the
+  // tick the tenth yes lands, `drawn` jumps from five a side to seven and the
+  // picture would otherwise go from full to four holes exactly when the game
+  // becomes real. Marked this way the five-a-side block stays whole and the
+  // rest reads as the stretch towards the next format.
+  const rung = on && next ? on.perSide : 0;
+
+  return (
+    <section className={`sides ${on ? "on" : "short"}`}>
+      <div className="sd-head">
+        <div>
+          <div className="sd-tag">{on ? "Playing" : "Short"}</div>
+          <div className="sd-format">
+            {face.perSide}
+            <span className="sd-v">v</span>
+            {face.perSide}
+          </div>
+        </div>
+        <div className="sd-note">{note}</div>
+      </div>
+      <div
+        className="sd-rows"
+        style={{ "--slots": drawn.perSide }}
+        role="img"
+        aria-label={`${going} in — ${said}, ${note}`}
+      >
+        {[0, 1].map((row) => (
+          <div className="sd-row" key={row}>
+            {Array.from({ length: drawn.perSide }, (_, i) => (
+              <div
+                className={`sd-slot ${rung === i + 1 ? "ruled" : ""} ${rung && i >= rung ? "stretch" : ""}`}
+                key={i}
+              >
+                <Shirt kit={i * 2 + row < going ? (row ? "away" : "home") : "empty"} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

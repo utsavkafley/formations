@@ -5,6 +5,13 @@ import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD } from "./squad.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
+// Peer ratings are PAUSED. While this is false the post-RSVP prompt never
+// opens, so nobody gets asked to rate a teammate. Nothing else is unwired —
+// pickFeedbackTarget, FeedbackSheet and store.addFeedback all stay, as do the
+// ratings already collected — so flipping it back to true resumes the asks
+// exactly as they were.
+const ASK_FOR_RATINGS = false;
+
 export default function Poll({ onNavigate }) {
   const game = useMemo(() => getNextGame(), []);
   const deviceId = useMemo(() => getDeviceId(), []);
@@ -207,10 +214,11 @@ export default function Poll({ onNavigate }) {
   }
 
   // Runs whenever the RSVP sheet closes (Done, ✕, Escape, or backdrop). If the
-  // member is IN, prompt once per poll to rate a teammate from a past game.
+  // member is IN, prompt once per poll to rate a teammate from a past game —
+  // skipped entirely while ASK_FOR_RATINGS is off.
   async function closeVote() {
     const askedKey = `yolo.feedbackAsked.${game.date}`;
-    if (voteRef.current === "in" && me && !localStorage.getItem(askedKey)) {
+    if (ASK_FOR_RATINGS && voteRef.current === "in" && me && !localStorage.getItem(askedKey)) {
       try {
         const target = await pickFeedbackTarget();
         if (target) {

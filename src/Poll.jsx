@@ -12,10 +12,10 @@ import {
   TEAM_TZ,
 } from "./schedule.js";
 import { getDeviceId, getMe, setMe } from "./device.js";
-import { CORE_SQUAD, SIDE_LADDER } from "./squad.js";
+import { CORE_SQUAD } from "./squad.js";
 import Crest from "./Crest.jsx";
-import { SkyMark, Shirt, WeatherMark } from "./Glyphs.jsx";
-import { fetchKickoffWeather, matchdayLine } from "./weather.js";
+import { DaylightBar, WeatherMark } from "./Glyphs.jsx";
+import { fetchKickoffWeather, matchdayHeadline } from "./weather.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
 // Peer ratings are PAUSED. While this is false the post-RSVP prompt never
@@ -41,10 +41,10 @@ export default function Poll({ onNavigate }) {
   const feedbackCount = useRef(0); // ratings submitted this session (chain caps at 3)
 
   const eff = applyMeta(game, data.meta);
+  const pendingKey = `yolo.pendingVote.${game.date}`;
 
-  // Where the sun is when the whistle goes. `margin` is the minutes of light
-  // on the nearer side of kickoff — negative means the game is in the dark,
-  // whichever end of the day it falls off.
+  // Where the game sits in the day. The bar needs both ends of the light;
+  // `caption` is what a screen reader gets in place of the picture.
   const sky = useMemo(() => {
     const { sunrise, sunset } = daylightFor(game);
     if (!sunrise || !sunset) return null;
@@ -55,28 +55,24 @@ export default function Poll({ onNavigate }) {
     const kick = mins(eff.time);
     const up = mins(sunrise);
     const down = mins(sunset);
-    const margin = Math.min(kick - up, down - kick);
-    const title =
-      margin < 0
-        ? kick < up
-          ? `Sunrise ${prettyTime(sunrise)} — kick-off ${up - kick} min before first light`
-          : `Sunset ${prettyTime(sunset)} — kick-off after dark`
-        : kick - up <= down - kick
-          ? `Sunrise ${prettyTime(sunrise)} — kick-off ${kick - up} min after`
-          : `Sunset ${prettyTime(sunset)} — ${down - kick} min of light left at kick-off`;
-    return { dark: margin < 0, elevation: Math.min(Math.max(margin, 0) / 90, 1), title };
+    const morning = Math.abs(kick - up) <= Math.abs(kick - down);
+    const dark = kick < up || kick > down;
+    const turn = morning ? `sunrise ${prettyTime(sunrise)}` : `sunset ${prettyTime(sunset)}`;
+    return {
+      sunrise,
+      sunset,
+      kickoff: eff.time,
+      timeLabel: prettyTime(eff.time),
+      caption: `Kick-off ${prettyTime(eff.time)}, ${dark ? "in the dark" : "in daylight"} — ${turn}`,
+    };
   }, [game, eff.time]);
-  const pendingKey = `yolo.pendingVote.${game.date}`;
 
   // Forecast for the hour of kickoff. Best-effort: no spinner, no error
   // state — if it doesn't come back, the line simply isn't there.
   const [weather, setWeather] = useState(null);
   useEffect(() => {
     const ctl = new AbortController();
-    fetchKickoffWeather(
-      { ...PITCH, tz: TEAM_TZ, date: game.date, time: eff.time },
-      ctl.signal,
-    )
+    fetchKickoffWeather({ ...PITCH, tz: TEAM_TZ, date: game.date, time: eff.time }, ctl.signal)
       .then(setWeather)
       .catch(() => {});
     return () => ctl.abort();
@@ -337,27 +333,35 @@ export default function Poll({ onNavigate }) {
           <button className="hero-edit" onClick={() => setSheet("meta")} aria-label="Edit game details">
             ✎
           </button>
-          <div className="hero-kicker">
-            <Crest size={34} />
-            Next game
+          <div className="hero-brand">
+            <Crest size={58} />
+            <div className="brand-lines">
+              <div className="brand-name">YOLO</div>
+              <div className="hero-kicker">Next game</div>
+            </div>
           </div>
-          <h1 className="hero-title">
-            <span>{dateParts(game.date).weekday}</span>
-            {dateParts(game.date).monthDay}
-          </h1>
-          {/* Place first, then the sky at kickoff, then the time — the hour is
-              what people come back for, so it ends the line. */}
+          <div className="hero-top">
+            <h1 className="hero-title">
+              <span>{dateParts(game.date).weekday}</span>
+              {dateParts(game.date).monthDay}
+            </h1>
+            {weather && (
+              <div className="hero-wx">
+                <WeatherMark kind={weather.kind} size={34} />
+                <div className="wx-temp">{weather.temp}°</div>
+                <div className="wx-sub">feels {weather.feels}°</div>
+                <div className="wx-sub">{weather.text}</div>
+              </div>
+            )}
+          </div>
+          {/* The place reads on its own line; the hour hangs off the daylight
+              strip below it, at the point in the day it actually falls. */}
           <div className="hero-when">
             <span className="hero-where">{eff.location}</span>
-            {sky ? <SkyMark {...sky} /> : <span className="hero-sep">·</span>}
-            <span className="hero-time">{prettyTime(eff.time)}</span>
+            {!sky && <span className="hero-time">{prettyTime(eff.time)}</span>}
           </div>
-          {weather && (
-            <div className="hero-weather">
-              <WeatherMark kind={weather.kind} />
-              {matchdayLine(weather)}
-            </div>
-          )}
+          {sky && <DaylightBar {...sky} />}
+          {weather && <div className="hero-advice">{matchdayHeadline(weather)}</div>}
           {eff.note && <div className="hero-note">{eff.note}</div>}
           <button className={`hero-rsvp ${myVote || "none"}`} onClick={openVoteSheet}>
             {myVote ? statusLabel : "Tap to RSVP"}
@@ -382,7 +386,6 @@ export default function Poll({ onNavigate }) {
 
         <section className="roster-block in">
           <h3>Going</h3>
-          <TeamSheet going={totalIn} />
           {totalIn === 0 ? (
             <div className="roster-empty">Nobody yet — be the first.</div>
           ) : (
@@ -617,40 +620,6 @@ function FeedbackSheet({ subjectName, chained, onClose, onSubmit }) {
         Skip
       </button>
     </Sheet>
-  );
-}
-
-// The teamsheet, not a progress bar: two rows of shirts the way the sides
-// would line up, filling alternately so each new yes lands on the thinner
-// team. The empty shirts are the point — a gap in the line is read as "we're
-// short" long before anybody parses the number next to it.
-function TeamSheet({ going }) {
-  const perSide = SIDE_LADDER[SIDE_LADDER.length - 1].players / 2;
-  const reached = [...SIDE_LADDER].reverse().find((s) => going >= s.players);
-  const next = SIDE_LADDER.find((s) => s.players > going);
-  const note = reached
-    ? next
-      ? `${reached.label} on · ${next.players - going} more for ${next.label}`
-      : `Full ${reached.label}`
-    : `${next.players - going} more for ${next.label}`;
-  // A hairline after the column where each smaller format is complete.
-  const rungs = SIDE_LADDER.slice(0, -1).map((s) => s.players / 2);
-
-  return (
-    <div className="teamsheet">
-      <div className="ts-rows" role="img" aria-label={`${going} in — ${note}`}>
-        {[0, 1].map((row) => (
-          <div className="ts-row" key={row}>
-            {Array.from({ length: perSide }, (_, i) => [
-              <Shirt key={i} className={i * 2 + row < going ? "on" : ""} />,
-              rungs.includes(i + 1) ? <span className="ts-rung" key={`r${i}`} /> : null,
-            ])}
-          </div>
-        ))}
-        {going > perSide * 2 && <span className="ts-extra">+{going - perSide * 2}</span>}
-      </div>
-      <div className={`ts-note ${reached ? "ready" : ""}`}>{note}</div>
-    </div>
   );
 }
 

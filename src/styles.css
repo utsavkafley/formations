@@ -804,143 +804,168 @@ h3 {
     color: var(--orange);
 }
 
-/* ---- Where · sky · when ----
-   The place reads first, the hour last, and between them the sky at kickoff.
-   Both a sun and a moon are drawn so the mark is legible as "light" at a
-   glance; the one that doesn't apply is left faint. */
-.hero-when {
+/* ---- Brand lockup ---- */
+.hero-brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 10px;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+.brand-lines {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+}
+/* The kicker carries a margin for its standalone use; inside the lockup it
+   would leave the wordmark sitting high against the shield. */
+.hero-brand .hero-kicker {
+    margin-bottom: 0;
+}
+.brand-name {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: var(--teal);
+}
+.crest {
+    flex: none;
+}
+
+/* The date and the forecast share the row: the block beside a two-line date
+   was dead space, and the numbers belong near the day they describe. */
+.hero-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+.hero-top .hero-title {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.hero-wx {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    /* nudged down to sit on the date's cap line rather than its box */
+    padding-top: 6px;
+    text-align: right;
+    line-height: 1.25;
+}
+.wx-temp {
+    margin-top: 4px;
+    font-size: 30px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    color: var(--text);
+}
+.wx-sub {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.wx-mark {
+    flex: none;
+    color: var(--muted);
+}
+.wx-clear {
+    color: var(--orange);
+}
+.wx-rain,
+.wx-snow {
+    color: var(--teal);
+}
+
+/* The verdict only — the numbers are up beside the date. */
+.hero-advice {
+    margin-top: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+/* ---- Where · when ---- */
+.hero-when {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 12px;
     font-size: clamp(17px, 4.6vw, 20px);
     font-weight: 600;
     color: var(--muted);
 }
 .hero-where {
-    flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .hero-time {
+    margin-left: auto;
     color: var(--text);
     font-weight: 800;
     white-space: nowrap;
 }
-.hero-sep,
-.sky-mark {
-    flex: none;
-}
-.sky-horizon {
-    stroke: var(--line);
-    stroke-width: 1.4;
-    stroke-linecap: round;
-}
-.sky-sun {
-    fill: var(--orange);
-}
-.sky-moon {
-    fill: var(--teal-ink);
-}
-.sky-halo {
-    fill: currentColor;
-    opacity: 0.15;
-}
-.sky-halo.sun {
-    color: var(--orange);
-}
-.sky-halo.moon {
-    color: var(--teal);
-}
-/* The side of the day that doesn't apply stays on the mark, greyed, so the
-   pair still reads as "light or dark" rather than as one odd shape. */
-.sky-body.off {
-    opacity: 0.28;
-}
-.sky-body.off .sky-sun,
-.sky-body.off .sky-moon {
-    fill: var(--muted);
-}
-.sky-body.off .sky-halo {
-    display: none;
-}
 
-/* ---- Forecast line ---- */
-.hero-weather {
+/* ---- Daylight strip ----
+   Night at one end, day at the other, the sun on the seam between them and
+   the moon out in the dark. Kickoff is pinned where it falls, with the hour
+   itself standing over that point — nearly as large as the date, because it
+   is the other half of "when". */
+.daylight {
+    position: relative;
+    margin-top: 16px;
+    padding-top: 42px;
+}
+.dl-bar {
+    position: relative;
+    height: 30px;
+    border-radius: 999px;
+    box-shadow: inset 0 0 0 1px rgba(18, 34, 32, 0.12);
+}
+.dl-sun,
+.dl-moon {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 12px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: var(--muted);
+    pointer-events: none;
 }
-.wx-mark {
-    flex: none;
-    color: var(--teal);
+/* A white tick reads against both ends of the gradient; the hairline round it
+   keeps it from vanishing into the pale end. */
+.dl-tick {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 3px;
+    margin-left: -1.5px;
+    border-radius: 2px;
+    background: var(--panel);
+    box-shadow: 0 0 0 1px rgba(18, 34, 32, 0.4);
 }
-
-/* ---- Teamsheet ----
-   Two rows of shirts the way the sides line up. The holes in the line are
-   the message; the count beside them is only the caption. */
-.teamsheet {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    margin: 0 0 14px;
-}
-.ts-rows {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.ts-row {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-}
-.shirt {
-    flex: none;
-    fill: var(--panel-2);
-    stroke: var(--line);
-    stroke-width: 0.8;
-}
-.shirt.on {
-    fill: var(--teal);
-    stroke: var(--teal);
-}
-/* Hairline where a smaller format would be complete. Its own element, not a
-   border on the shirt: padding on an <svg> shrinks the drawing inside it. */
-.ts-rung {
-    width: 1px;
-    align-self: stretch;
-    margin: 1px 3px;
-    background: var(--line);
-}
-.ts-extra {
-    align-self: center;
-    font-size: 12px;
+.dl-time {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: clamp(27px, 8vw, 34px);
     font-weight: 800;
-    color: var(--muted);
-}
-.ts-note {
-    font-size: 12.5px;
-    font-weight: 700;
-    color: var(--muted);
-}
-.ts-note.ready {
-    color: var(--teal);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--text);
+    white-space: nowrap;
 }
 
 /* Discreet corner affordance — organizers know it's there, nobody else has to
    read past it. */
 .hero-edit {
     position: absolute;
-    top: 16px;
-    right: 16px;
+    top: 22px;
+    right: 22px;
     width: 34px;
     height: 34px;
     border-radius: 50%;
@@ -975,6 +1000,7 @@ h3 {
     display: block;
     font-size: 36px;
     font-weight: 800;
+    font-variant-numeric: tabular-nums;
     line-height: 1;
     letter-spacing: -0.03em;
 }
@@ -1011,7 +1037,7 @@ h3 {
 }
 
 .roster-block h3 {
-    margin: 0 0 10px;
+    margin: 0 0 14px;
     font-size: 13px;
     font-weight: 800;
     letter-spacing: 0.1em;
@@ -1039,7 +1065,7 @@ h3 {
     border-radius: 999px;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    font-size: 15.5px;
+    font-size: 15px;
     font-weight: 600;
 }
 .roster-block.in .namechip {
@@ -1058,7 +1084,7 @@ h3 {
 }
 .namechips.quiet .namechip {
     color: var(--muted);
-    font-size: 14.5px;
+    font-size: 14px;
 }
 .roster-empty {
     font-size: 15px;
@@ -1074,7 +1100,7 @@ h3 {
     background: var(--panel);
     color: var(--text);
     font: inherit;
-    font-size: 14.5px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
     transition: border-color 0.15s, color 0.15s;
@@ -1156,7 +1182,7 @@ h3 {
 }
 .sheet-sub {
     margin: 4px 0 18px;
-    font-size: 13.5px;
+    font-size: 13px;
     color: var(--muted);
     font-weight: 600;
 }
@@ -1222,7 +1248,7 @@ h3 {
     padding: 14px;
 }
 .guest2-title {
-    font-size: 14.5px;
+    font-size: 14px;
     font-weight: 700;
     margin-bottom: 10px;
 }
@@ -1410,7 +1436,7 @@ h3 {
     background: var(--panel-2);
     color: var(--text);
     font: inherit;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: transform 0.06s, border-color 0.12s, background 0.12s;
@@ -1471,7 +1497,7 @@ h3 {
 /* Vote save status inside the RSVP sheet */
 .save-note {
     margin: 12px 2px 0;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--muted);
     line-height: 1.5;
@@ -1488,7 +1514,7 @@ h3 {
 .hero-rsvp {
     display: block;
     width: 100%;
-    margin-top: 18px;
+    margin-top: 16px;
     padding: 17px 16px;
     border: none;
     border-radius: var(--r-md);
@@ -1578,7 +1604,7 @@ h3 {
     background: var(--panel);
     color: var(--muted);
     font: inherit;
-    font-size: 14.5px;
+    font-size: 14px;
     font-weight: 700;
     cursor: pointer;
 }
@@ -1767,7 +1793,7 @@ h3 {
 .web-legend {
     display: flex;
     gap: 16px;
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--muted);
 }
@@ -1850,7 +1876,7 @@ h3 {
     font-weight: 700;
 }
 .pick-style {
-    font-size: 12.5px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--muted);
 }
@@ -1871,7 +1897,7 @@ h3 {
 }
 .detail-note {
     margin: 12px 0 0;
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.55;
     color: var(--muted);
 }

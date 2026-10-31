@@ -51,24 +51,17 @@ export async function fetchKickoffWeather({ lat, lon, tz, date, time }, signal) 
   };
 }
 
-// One line on the kind of game to expect. Ordered by what would actually ruin
-// it: wet ball first, then cold hands, then heat, then wind.
-export function matchdayLine(w) {
+// What kind of game to expect, in a few words. The numbers live in the hero's
+// forecast block now, so this is only the verdict. Ordered by what would
+// actually spoil the game: wet ball first, then cold hands, then heat, wind.
+export function matchdayHeadline(w) {
   if (!w) return null;
   const wet = w.kind === "rain" || w.kind === "snow" || w.rainChance >= 55;
-  const feelsGap = Math.abs(w.temp - w.feels) >= 4 ? `, feels ${w.feels}°` : "";
-
-  let headline;
-  if (w.kind === "snow") headline = "Snow on the pitch";
-  else if (wet) headline = "Wet ball — expect it to skid";
-  else if (w.feels <= 32) headline = "Freezing — gloves and a base layer";
-  else if (w.wind >= 18) headline = "Windy — nothing long will hold its line";
-  else if (w.feels <= 45) headline = "Cold start, worth a proper warm-up";
-  else if (w.temp >= 85) headline = "Hot — bring more water than you think";
-  else headline = "Good football weather";
-
-  const detail = wet
-    ? `${w.temp}°${feelsGap}, ${w.text}, ${w.rainChance}% chance`
-    : `${w.temp}°${feelsGap}, ${w.text}`;
-  return `${headline} — ${detail}`;
+  if (w.kind === "snow") return "Snow on the pitch";
+  if (wet) return `Wet ball — ${w.rainChance}% chance of ${w.text}`;
+  if (w.feels <= 32) return "Freezing — gloves and a base layer";
+  if (w.wind >= 18) return `Windy at ${w.wind} mph — nothing long will hold its line`;
+  if (w.feels <= 45) return "Cold start, worth a proper warm-up";
+  if (w.temp >= 85) return "Hot — bring more water than you think";
+  return "Good football weather";
 }

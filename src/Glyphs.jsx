@@ -1,64 +1,105 @@
 // Small marks the poll draws inline. All of them inherit color where it makes
 // sense, so a glyph picks up whatever the surrounding text is doing.
 
-// The sky at kickoff, used as the separator between where and when. Both a
-// moon and a sun are always drawn, with the one that applies lit and the
-// other left faint — a lone crescent would be a riddle, the pair reads as
-// "this line is about light". `elevation` is 0 at the horizon and 1 when the
-// sun is well clear of it, so a 7:15 winter morning shows a sun barely up
-// while the same game in June shows one riding high.
-export function SkyMark({ elevation = 1, dark = false, title }) {
-  const horizon = 14;
-  // Never fully below the line: even at sunrise the disc should read as a
-  // sun, not a sliver. 0 puts about two thirds of it above the horizon.
-  const cy = horizon - 1.2 - Math.max(0, Math.min(1, elevation)) * 6;
+// Sun and moon, flat: the same warm amber and cool pale as before, but no
+// gradients, glow or craters — solid shapes only, so they sit on the strip
+// as marks rather than as pictures.
+export function SunIcon({ size = 46, className = "" }) {
   return (
-    <svg
-      className="sky-mark"
-      viewBox="0 0 34 18"
-      width="34"
-      height="18"
-      role="img"
-      aria-label={title}
-    >
-      {title && <title>{title}</title>}
-      <clipPath id="sky-above">
-        <rect x="0" y="0" width="34" height={horizon} />
-      </clipPath>
-      <g className={`sky-body ${dark ? "on" : "off"}`}>
-        <circle className="sky-halo moon" cx="9" cy="8.5" r="6.2" />
-        {/* Crescent: a disc with a second, larger disc bitten out of its right. */}
-        <path
-          className="sky-moon"
-          transform="rotate(-18 9 8.5)"
-          d="M9 4.1a4.4 4.4 0 1 0 0 8.8 5.5 5.5 0 0 1 0-8.8Z"
-        />
+    <svg className={className} viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
+      <g fill="#f6ae33">
+        {Array.from({ length: 12 }, (_, i) => (
+          <path key={i} d="M24 3.4 26 10.2 22 10.2Z" transform={`rotate(${i * 30} 24 24)`} />
+        ))}
       </g>
-      <g className={`sky-body ${dark ? "off" : "on"}`} clipPath="url(#sky-above)">
-        <circle className="sky-halo sun" cx="25" cy={cy} r="6.4" />
-        <circle className="sky-sun" cx="25" cy={cy} r="4.2" />
-      </g>
-      <line className="sky-horizon" x1="2" y1={horizon} x2="32" y2={horizon} />
+      <circle cx="24" cy="24" r="10.8" fill="#ffc24a" />
     </svg>
   );
 }
 
-// One shirt per place on the teamsheet — filled once somebody has claimed it.
-export function Shirt({ className = "" }) {
+export function MoonIcon({ size = 34, className = "" }) {
   return (
-    <svg className={`shirt ${className}`} viewBox="0 0 14 14" width="14" height="14" aria-hidden="true">
-      <path d="M5.6 1.6 4 2.2 1.8 4.6 3.6 6.4 4.4 5.7V12.4h5.2V5.7l.8.7 1.8-1.8L10 2.2 8.4 1.6a1.5 1.5 0 0 1-2.8 0Z" />
+    <svg className={className} viewBox="0 0 36 36" width={size} height={size} aria-hidden="true">
+      {/* Crescent: the disc less a second disc offset to its right. */}
+      <path
+        fill="#e6eef1"
+        d="M17 5a13 13 0 1 0 0 26 15.4 15.4 0 0 1 0-26Z"
+      />
     </svg>
+  );
+}
+
+// The day as a strip: night at one end, daylight at the other, and the sun
+// sitting exactly where one turns into the other. The moon hangs in the dark
+// half, and kickoff is pinned where it actually falls — so a 6:45 game reads
+// as "just after the light arrives" and a 7:30 PM one in November reads as
+// "well into the dark", without anybody doing arithmetic.
+export function DaylightBar({ sunrise, sunset, kickoff, timeLabel, caption }) {
+  const mins = (t) => {
+    const [h, m] = t.split(":").map(Number);
+    return h * 60 + m;
+  };
+  const kick = mins(kickoff);
+  const up = mins(sunrise);
+  const down = mins(sunset);
+
+  // Anchor on whichever turn of the light this game is about.
+  const morning = Math.abs(kick - up) <= Math.abs(kick - down);
+  const anchor = morning ? up : down;
+  // Four hours around that turn, widened if kickoff falls outside it.
+  const lo = Math.min(anchor - 120, kick - 25);
+  const hi = Math.max(anchor + 120, kick + 25);
+  const pos = (m) => ((m - lo) / (hi - lo)) * 100;
+  const at = (n) => `${Math.max(0, Math.min(100, n))}%`;
+
+  const sun = pos(anchor);
+  const kickAt = pos(kick);
+  // Out in the dark, not hard against the end of the strip — and pushed
+  // deeper still if kickoff happens to land on top of it.
+  let moon = morning ? sun * 0.42 : sun + (100 - sun) * 0.58;
+  if (Math.abs(moon - kickAt) < 8) moon = morning ? sun * 0.14 : sun + (100 - sun) * 0.88;
+  // Keep it off the rounded caps, where the glyph would hang over the edge.
+  moon = Math.max(9, Math.min(91, moon));
+
+  const NIGHT = "#16302e";
+  const DUSK = "#24534f";
+  const WARM = "#f2d7b6";
+  const DAY = "#fcfaf6";
+  const stops = morning
+    ? `${NIGHT} 0%, ${DUSK} ${at(sun - 22)}, var(--orange) ${at(sun)}, ${WARM} ${at(sun + 14)}, ${DAY} 100%`
+    : `${DAY} 0%, ${WARM} ${at(sun - 14)}, var(--orange) ${at(sun)}, ${DUSK} ${at(sun + 22)}, ${NIGHT} 100%`;
+
+  // When kickoff lands on the turn itself, the sun already marks the spot and
+  // a tick beside it just looks like a smudge.
+  const showTick = Math.abs(kickAt - sun) > 4;
+
+  return (
+    <div className="daylight" role="img" aria-label={caption}>
+      <div className="dl-bar" style={{ backgroundImage: `linear-gradient(90deg, ${stops})` }}>
+        {showTick && <span className="dl-tick" style={{ left: at(kickAt) }} />}
+        <span className="dl-moon" style={{ left: at(moon) }}>
+          <MoonIcon size={30} />
+        </span>
+        <span className="dl-sun" style={{ left: at(sun) }}>
+          <SunIcon size={46} />
+        </span>
+      </div>
+      {/* Pulled off the ends so the label never hangs over the edge, while the
+          tick above it stays honest. */}
+      <div className="dl-time" style={{ left: `${Math.max(14, Math.min(86, kickAt))}%` }}>
+        {timeLabel}
+      </div>
+    </div>
   );
 }
 
 // Forecast marks, keyed to the buckets in weather.js.
-export function WeatherMark({ kind }) {
+export function WeatherMark({ kind, size = 15 }) {
   const common = {
-    className: "wx-mark",
+    className: `wx-mark wx-${kind}`,
     viewBox: "0 0 16 16",
-    width: 15,
-    height: 15,
+    width: size,
+    height: size,
     fill: "none",
     stroke: "currentColor",
     strokeWidth: 1.4,

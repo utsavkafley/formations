@@ -480,7 +480,7 @@ export default function Builder({ onNavigate }) {
       await new Promise((r) => setTimeout(r, 50));
       const dataUrl = await toPng(pitchRef.current, {
         pixelRatio: 2,
-        backgroundColor: "#145029",
+        backgroundColor: "#35716a",
       });
       const link = document.createElement("a");
       link.download = `formation-${teams.A.name}-vs-${teams.B.name}.png`;
@@ -580,7 +580,7 @@ export default function Builder({ onNavigate }) {
                           startPress(e, {
                             id: m.id,
                             name: m.name,
-                            color: "#8b97a6",
+                            color: "#7c8c8a",
                             source: "bench",
                           })
                       : undefined

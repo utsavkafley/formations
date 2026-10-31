@@ -1,38 +1,55 @@
 :root {
-    /* ---- Theme: three brand colors ---- */
-    --green: #22c55e; /* primary · brand · IN · actions */
-    --green-strong: #16a34a;
-    --green-ink: #b7f7cf;
-    --green-soft: rgba(34, 197, 94, 0.14);
-    --coral: #fb7185; /* OUT · danger */
-    --coral-soft: rgba(251, 113, 133, 0.14);
-    --amber: #fbbf24; /* accent · guests · notices */
-    --amber-soft: rgba(251, 191, 36, 0.14);
+    /* ---- Theme: white, dull teal, burnt orange ----
+       Teal and orange sit opposite each other on the wheel, so the pair can
+       carry IN and OUT on its own — no third hue needed. Both are pulled back
+       to a similar, low chroma so neither shouts over the other against all
+       this white; the orange is the warmer and therefore the louder of the
+       two, which is why it is the one reserved for what needs an answer.
+       Every pairing used below clears WCAG AA, and the `-ink` variants exist
+       for small text, where the display tones are a shade too light. */
+    --teal: #2a6f6b; /* primary · IN · actions */
+    --teal-strong: #1d524f; /* hover / pressed */
+    --teal-ink: #1d524f; /* small text on white or on a tint */
+    --teal-tint: #e9f1f0; /* soft fill */
+    --teal-edge: #bcd6d3; /* border around a tinted fill */
+    --orange: #b85c1a; /* accent · OUT · notices */
+    --orange-ink: #8f460f;
+    --orange-tint: #fcf0e4;
+    --orange-edge: #edcfae;
 
-    /* ---- Neutrals (dark slate) ---- */
-    --bg: #0a0e13;
-    --panel: #121820;
-    --panel-2: #1a212b;
-    --line: #262f3a;
-    --line-soft: #1e2732;
-    --text: #eaf0f6;
-    --muted: #93a1b1;
+    /* ---- Neutrals (white, cooled a touch toward the teal) ---- */
+    --bg: #f5f7f7;
+    --panel: #ffffff;
+    --panel-2: #eef2f2;
+    --line: #dde4e4;
+    --line-soft: #e9eeee;
+    --text: #122220;
+    --muted: #5c6b6b;
+
+    /* The pitch stays dark: white markings and bright kit colors both need
+       something to read against, and it gives the builder one deep anchor in
+       an otherwise light app. */
+    --pitch: #35716a;
+    --pitch-alt: #3a776f;
+    --pitch-frame: #dfe9e7;
 
     /* back-compat alias for existing builder styles */
-    --accent: var(--green);
+    --accent: var(--teal);
 
     /* ---- Radii / shadows ---- */
     --r-sm: 8px;
     --r-md: 12px;
     --r-lg: 18px;
     --r-xl: 26px;
-    --shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.55);
-    --shadow-lg: 0 30px 70px -24px rgba(0, 0, 0, 0.75);
+    /* Tinted with the ink rather than pure black — a neutral-grey shadow on a
+       cool white reads as dirt. */
+    --shadow: 0 8px 24px -14px rgba(18, 34, 32, 0.3);
+    --shadow-lg: 0 30px 70px -28px rgba(18, 34, 32, 0.4);
 
     --font: "Plus Jakarta Sans Variable", -apple-system, BlinkMacSystemFont,
         "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-    color-scheme: dark;
+    color-scheme: light;
 }
 
 * {
@@ -60,6 +77,18 @@ h2,
 h3 {
     letter-spacing: -0.03em;
     line-height: 1.1;
+}
+
+/* On a white canvas the browser's own focus ring all but disappears, so every
+   control gets an explicit one in the brand teal. */
+:where(button, select, input, a, [tabindex]):focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+}
+
+::selection {
+    background: var(--teal-tint);
+    color: var(--teal-ink);
 }
 
 .app {
@@ -168,7 +197,7 @@ h3 {
 
 .squad-list.drop-hover {
     border-color: var(--accent);
-    background: rgba(61, 163, 93, 0.08);
+    background: var(--teal-tint);
 }
 
 .squad-cols {
@@ -271,7 +300,7 @@ h3 {
 }
 
 .form-toggle.great {
-    color: #ffe400;
+    color: var(--orange);
 }
 
 .area-chip {
@@ -288,17 +317,19 @@ h3 {
     cursor: pointer;
 }
 
+/* Defence → attack runs cool → warm, so the three chips read as one ramp
+   instead of three unrelated colors. */
 .area-DEF {
-    border-color: #3da3c9;
-    color: #8fd3ec;
+    border-color: var(--teal-edge);
+    color: var(--teal-ink);
 }
 .area-MID {
-    border-color: #3da35d;
-    color: #8fe0a6;
+    border-color: var(--teal);
+    color: var(--teal);
 }
 .area-ATT {
-    border-color: #e0734d;
-    color: #f1ac8f;
+    border-color: var(--orange-edge);
+    color: var(--orange-ink);
 }
 
 .squad-x {
@@ -367,7 +398,7 @@ h3 {
     width: 18px;
     height: 18px;
     border-radius: 5px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(18, 34, 32, 0.18);
 }
 
 .team-control select {
@@ -390,8 +421,8 @@ h3 {
     padding: 9px 16px;
     border-radius: 8px;
     border: none;
-    background: #f1b000;
-    color: #2b2b2b;
+    background: var(--orange);
+    color: #fff;
     font-weight: 700;
     cursor: pointer;
     font-size: 14px;
@@ -435,7 +466,7 @@ h3 {
     gap: 16px;
     padding: 18px;
     overflow: auto;
-    background: #145029;
+    background: var(--pitch-frame);
 }
 
 .pitch {
@@ -449,7 +480,9 @@ h3 {
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.35);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-bottom: none;
     border-left: 4px solid;
     border-radius: 8px 8px 0 0;
     font-size: 14px;
@@ -473,10 +506,10 @@ h3 {
     min-height: 600px;
     background: repeating-linear-gradient(
         to bottom,
-        #2c8a47 0px,
-        #2c8a47 56px,
-        #259040 56px,
-        #259040 112px
+        var(--pitch) 0px,
+        var(--pitch) 56px,
+        var(--pitch-alt) 56px,
+        var(--pitch-alt) 112px
     );
 }
 
@@ -700,7 +733,7 @@ h3 {
     justify-content: center;
     padding: 20px 16px calc(104px + env(safe-area-inset-bottom));
     background:
-        radial-gradient(120% 60% at 50% -10%, rgba(34, 197, 94, 0.10), transparent 60%),
+        radial-gradient(120% 60% at 50% -10%, rgba(42, 111, 107, 0.1), transparent 60%),
         var(--bg);
 }
 
@@ -714,7 +747,7 @@ h3 {
 
 /* ---- Hero ---- */
 .hero {
-    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
     border: 1px solid var(--line);
     border-radius: var(--r-xl);
     padding: 22px 22px 24px;
@@ -728,15 +761,18 @@ h3 {
     position: absolute;
     inset: 0 0 auto 0;
     height: 4px;
-    background: linear-gradient(90deg, var(--green), var(--amber));
+    background: linear-gradient(90deg, var(--teal), var(--orange));
 }
 
 .hero-kicker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--green);
+    color: var(--teal);
     margin-bottom: 10px;
 }
 
@@ -762,7 +798,7 @@ h3 {
     margin-top: 12px;
     font-size: 15px;
     font-weight: 600;
-    color: var(--amber);
+    color: var(--orange);
 }
 
 /* Discreet corner affordance — organizers know it's there, nobody else has to
@@ -818,14 +854,18 @@ h3 {
 }
 
 .stat-in {
-    background: var(--green-soft);
-    border-color: rgba(34, 197, 94, 0.35);
+    background: var(--teal-tint);
+    border-color: var(--teal-edge);
 }
 .stat-in b {
-    color: var(--green);
+    color: var(--teal);
+}
+.stat-out {
+    background: var(--orange-tint);
+    border-color: var(--orange-edge);
 }
 .stat-out b {
-    color: var(--coral);
+    color: var(--orange);
 }
 
 /* ---- Roster ---- */
@@ -845,10 +885,10 @@ h3 {
     color: var(--muted);
 }
 .roster-block.in h3 {
-    color: var(--green);
+    color: var(--teal);
 }
 .roster-block.out h3 {
-    color: var(--coral);
+    color: var(--orange);
 }
 
 .namechips {
@@ -869,18 +909,18 @@ h3 {
     font-weight: 600;
 }
 .roster-block.in .namechip {
-    background: var(--green-soft);
-    border-color: rgba(34, 197, 94, 0.28);
+    background: var(--teal-tint);
+    border-color: var(--teal-edge);
 }
 .namechip.guest {
-    background: var(--amber-soft);
-    border-color: rgba(251, 191, 36, 0.3);
-    color: var(--amber);
+    background: var(--panel);
+    border: 1px dashed var(--teal-edge);
+    color: var(--teal-ink);
 }
 /* Your own chip is outlined so you can spot yourself — and notice instantly if
    the app is remembering the wrong person. */
 .namechip.mine {
-    box-shadow: 0 0 0 2px var(--green);
+    box-shadow: 0 0 0 2px var(--teal);
 }
 .namechips.quiet .namechip {
     color: var(--muted);
@@ -906,15 +946,15 @@ h3 {
     transition: border-color 0.15s, color 0.15s;
 }
 .build-cta:hover {
-    border-color: var(--green);
-    color: var(--green);
+    border-color: var(--teal);
+    color: var(--teal);
 }
 
 /* ---- Connectivity banner ---- */
 .conn-banner {
-    background: var(--coral-soft);
-    border: 1px solid var(--coral);
-    color: #ffd7de;
+    background: var(--orange-tint);
+    border: 1px solid var(--orange-edge);
+    color: var(--orange-ink);
     border-radius: var(--r-md);
     padding: 12px 14px;
     font-size: 13px;
@@ -923,7 +963,7 @@ h3 {
 }
 .local-warn {
     font-size: 12px;
-    color: var(--amber);
+    color: var(--orange-ink);
     line-height: 1.5;
     text-align: center;
 }
@@ -1087,14 +1127,14 @@ h3 {
     transform: scale(0.97);
 }
 .v-btn.in.on {
-    border-color: var(--green);
-    background: var(--green-soft);
-    color: var(--green-ink);
+    border-color: var(--teal);
+    background: var(--teal-tint);
+    color: var(--teal-ink);
 }
 .v-btn.out.on {
-    border-color: var(--coral);
-    background: var(--coral-soft);
-    color: #ffd7de;
+    border-color: var(--orange);
+    background: var(--orange-tint);
+    color: var(--orange-ink);
 }
 
 /* Guest block inside sheet */
@@ -1128,9 +1168,9 @@ h3 {
 .guest2-form button {
     padding: 0 16px;
     border-radius: 10px;
-    border: 1px solid var(--green);
-    background: var(--green-soft);
-    color: var(--green-ink);
+    border: 1px solid var(--teal);
+    background: var(--teal-tint);
+    color: var(--teal-ink);
     font: inherit;
     font-weight: 700;
     cursor: pointer;
@@ -1147,15 +1187,15 @@ h3 {
     gap: 8px;
     padding: 7px 8px 7px 12px;
     border-radius: 999px;
-    background: var(--amber-soft);
-    border: 1px solid rgba(251, 191, 36, 0.3);
-    color: var(--amber);
+    background: var(--panel);
+    border: 1px dashed var(--teal-edge);
+    color: var(--teal-ink);
     font-size: 13px;
     font-weight: 600;
 }
 .guest2-chip button {
     border: none;
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(18, 34, 32, 0.08);
     color: inherit;
     width: 20px;
     height: 20px;
@@ -1171,8 +1211,8 @@ h3 {
     padding: 15px;
     border-radius: var(--r-md);
     border: none;
-    background: var(--green);
-    color: #04140a;
+    background: var(--teal);
+    color: #fff;
     font: inherit;
     font-size: 16px;
     font-weight: 800;
@@ -1264,20 +1304,22 @@ h3 {
 .perf-pill:active {
     transform: scale(0.97);
 }
+/* ok / good / great climbs neutral → tint → solid, so the three read as one
+   scale. Colouring "ok" would make an average game look like a verdict. */
 .perf-pill.ok.on {
-    border-color: var(--amber);
-    background: var(--amber-soft);
-    color: var(--amber);
+    border-color: var(--muted);
+    background: var(--panel-2);
+    color: var(--text);
 }
 .perf-pill.good.on {
-    border-color: var(--green);
-    background: var(--green-soft);
-    color: var(--green-ink);
+    border-color: var(--teal);
+    background: var(--teal-tint);
+    color: var(--teal-ink);
 }
 .perf-pill.great.on {
-    border-color: var(--green);
-    background: var(--green);
-    color: #04140a;
+    border-color: var(--teal);
+    background: var(--teal);
+    color: #fff;
 }
 
 .strength-pills {
@@ -1301,9 +1343,9 @@ h3 {
     transform: scale(0.96);
 }
 .strength-pill.on {
-    border-color: var(--green);
-    background: var(--green-soft);
-    color: var(--green-ink);
+    border-color: var(--teal);
+    background: var(--teal-tint);
+    color: var(--teal-ink);
 }
 
 .sheet-skip {
@@ -1359,10 +1401,10 @@ h3 {
     line-height: 1.5;
 }
 .save-note.ok {
-    color: var(--green-ink);
+    color: var(--teal-ink);
 }
 .save-note.err {
-    color: var(--coral);
+    color: var(--orange);
 }
 
 /* Hero RSVP CTA — the primary action, right where eyes land, below the
@@ -1385,11 +1427,11 @@ h3 {
     transform: translateY(1px) scale(0.995);
 }
 .hero-rsvp.none {
-    color: #04140a;
-    background: linear-gradient(135deg, var(--green), #4ade80);
+    color: #fff;
+    background: linear-gradient(135deg, var(--teal-strong), var(--teal));
     box-shadow:
-        0 0 0 1px rgba(34, 197, 94, 0.4),
-        0 10px 30px -8px rgba(34, 197, 94, 0.55);
+        0 0 0 1px rgba(29, 82, 79, 0.5),
+        0 10px 30px -10px rgba(42, 111, 107, 0.7);
     animation: heartbeat 2.6s ease-in-out infinite;
 }
 .hero-rsvp.none:hover {
@@ -1401,14 +1443,14 @@ h3 {
     96% { transform: scale(0.995); }
 }
 .hero-rsvp.in {
-    color: var(--green-ink);
-    background: var(--green-soft);
-    box-shadow: inset 0 0 0 1.5px rgba(34, 197, 94, 0.45);
+    color: var(--teal-ink);
+    background: var(--teal-tint);
+    box-shadow: inset 0 0 0 1.5px var(--teal-edge);
 }
 .hero-rsvp.out {
-    color: #ffd7de;
-    background: var(--coral-soft);
-    box-shadow: inset 0 0 0 1.5px rgba(251, 113, 133, 0.45);
+    color: var(--orange-ink);
+    background: var(--orange-tint);
+    box-shadow: inset 0 0 0 1.5px var(--orange-edge);
 }
 .hero-rsvp.in:hover,
 .hero-rsvp.out:hover {
@@ -1465,8 +1507,8 @@ h3 {
     cursor: pointer;
 }
 .foot-links button:hover {
-    border-color: var(--green);
-    color: var(--green);
+    border-color: var(--teal);
+    color: var(--teal);
 }
 
 /* ---- Players page ---- */
@@ -1513,7 +1555,7 @@ h3 {
     white-space: nowrap;
 }
 .player-skill.standout {
-    color: var(--green);
+    color: var(--teal);
 }
 .player-sub {
     margin: 4px 0 14px;
@@ -1529,7 +1571,7 @@ h3 {
 .namechip.strength .tick {
     font-size: 11px;
     font-weight: 800;
-    color: var(--green);
+    color: var(--teal);
 }
 
 /* ============================================================= *
@@ -1561,9 +1603,9 @@ h3 {
     cursor: pointer;
 }
 .seg button.on {
-    background: var(--green-soft);
-    color: var(--green-ink);
-    box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.4);
+    background: var(--teal-tint);
+    color: var(--teal-ink);
+    box-shadow: inset 0 0 0 1px var(--teal-edge);
 }
 
 .profiles-grid {
@@ -1589,8 +1631,8 @@ h3 {
 }
 
 .player-card.standout {
-    border-color: rgba(34, 197, 94, 0.45);
-    background: linear-gradient(180deg, var(--green-soft), var(--panel) 60%);
+    border-color: var(--teal-edge);
+    background: linear-gradient(180deg, var(--teal-tint), var(--panel) 60%);
 }
 
 .web-grid {
@@ -1625,8 +1667,8 @@ h3 {
     opacity: 0.85;
 }
 .radar-player {
-    fill: rgba(34, 197, 94, 0.22);
-    stroke: var(--green);
+    fill: rgba(42, 111, 107, 0.16);
+    stroke: var(--teal);
     stroke-width: 2;
     stroke-linejoin: round;
 }
@@ -1636,7 +1678,7 @@ h3 {
     font-weight: 700;
 }
 .radar-count {
-    fill: var(--green);
+    fill: var(--teal);
     font-weight: 800;
 }
 .radar-empty {
@@ -1661,7 +1703,7 @@ h3 {
 .web-legend i {
     width: 16px;
     height: 0;
-    border-top: 2px solid var(--green);
+    border-top: 2px solid var(--teal);
 }
 .web-legend i.base {
     border-top: 2px dashed var(--muted);
@@ -1719,8 +1761,8 @@ h3 {
     border-color: var(--line);
 }
 .squad-pick.on {
-    background: var(--green-soft);
-    border-color: rgba(34, 197, 94, 0.45);
+    background: var(--teal-tint);
+    border-color: var(--teal-edge);
 }
 .squad-pick.off {
     background: none;
@@ -1737,7 +1779,7 @@ h3 {
     color: var(--muted);
 }
 .squad-pick.on .pick-style {
-    color: var(--green);
+    color: var(--teal);
 }
 
 .profile-detail {
@@ -1748,7 +1790,7 @@ h3 {
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--green);
+    color: var(--teal);
     white-space: nowrap;
 }
 .detail-note {

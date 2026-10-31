@@ -57,7 +57,7 @@ export default async function handler() {
   }
 
   const [f800, f600] = await Promise.all([loadFont("800"), loadFont("600")]);
-  const muted = "#93a1b1";
+  const muted = "#5c6b6b";
 
   const tree = h(
     "div",
@@ -67,16 +67,16 @@ export default async function handler() {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        background: "#0a0e13",
-        color: "#eaf0f6",
+        background: "#ffffff",
+        color: "#122220",
         padding: "70px 76px",
         fontFamily: "Inter",
       },
     },
     h("div", {
-      style: { position: "absolute", top: 0, left: 0, right: 0, height: 12, background: "linear-gradient(90deg,#22c55e,#fbbf24)", display: "flex" },
+      style: { position: "absolute", top: 0, left: 0, right: 0, height: 12, background: "linear-gradient(90deg,#2a6f6b,#b85c1a)", display: "flex" },
     }),
-    h("div", { style: { display: "flex", color: "#22c55e", fontSize: 30, fontWeight: 800, letterSpacing: 4 } }, "PICKUP · NEXT GAME"),
+    h("div", { style: { display: "flex", color: "#2a6f6b", fontSize: 30, fontWeight: 800, letterSpacing: 4 } }, "PICKUP · NEXT GAME"),
     h("div", { style: { display: "flex", fontSize: 78, fontWeight: 800, marginTop: 18, lineHeight: 1.05 } }, longDate(g.when)),
     h(
       "div",
@@ -89,9 +89,9 @@ export default async function handler() {
     h(
       "div",
       { style: { display: "flex", alignItems: "center", gap: 18, fontSize: 44, fontWeight: 800 } },
-      h("div", { style: { display: "flex", color: "#22c55e" } }, `${inCount + guestCount} IN`),
+      h("div", { style: { display: "flex", color: "#2a6f6b" } }, `${inCount + guestCount} IN`),
       h("div", { style: { display: "flex", color: muted } }, "·"),
-      h("div", { style: { display: "flex", color: "#fb7185" } }, `${outCount} OUT`),
+      h("div", { style: { display: "flex", color: "#b85c1a" } }, `${outCount} OUT`),
       h("div", { style: { display: "flex", color: muted, fontSize: 30, fontWeight: 600, marginLeft: 8 } }, "— tap to RSVP"),
     ),
   );

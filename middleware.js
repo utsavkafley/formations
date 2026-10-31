@@ -28,7 +28,7 @@ export default async function middleware(request) {
     let html = await res.text();
 
     const g = nextGame();
-    const title = `Pickup · ${shortDay(g.when)} · ${g.slot.location} · ${prettyTime(g.slot.time)}`;
+    const title = `Pickup · ${shortDay(g.when)} · ${g.slot.location} · ${prettyTime(g.time)}`;
     const desc = "Tap to mark yourself IN or OUT for the next pickup game.";
     const img = `${origin}/api/og`;
 

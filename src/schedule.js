@@ -1,10 +1,54 @@
+import { sunriseLocalHM, sunsetLocalHM, ceilToStep, clampHM } from "../lib/sunrise.js";
+
 // Recurring game slots. `weekday` follows JS Date.getDay(): 0 = Sunday … 6 = Sat.
 // These are the *defaults*; the organizer can override time/location per game via
 // the poll (stored in game_meta), which the UI layers on top of these.
+// Both pitches are in the same town, so one set of coordinates answers "when
+// is it light?" for either of them — the difference between the two fields is
+// well under a minute of sunrise.
+export const PITCH = { lat: 35.8008, lon: -78.8617 };
+
 export const SLOTS = [
   { id: "thu", weekday: 4, time: "19:30", location: "Pleasant Park", label: "Thursday" },
-  { id: "sun", weekday: 0, time: "06:30", location: "Thomas Brooks Park", label: "Sunday" },
+  {
+    id: "sun",
+    weekday: 0,
+    time: "06:30",
+    location: "Thomas Brooks Park",
+    label: "Sunday",
+    // The Sunday morning game follows the sun: see slotTimeOn below. `time`
+    // stays as the fallback for a date sunrise can't be computed for.
+    sunrise: { earliest: "06:30", latest: "07:30" },
+  },
 ];
+
+// A morning slot's kickoff for one particular date: the first quarter hour at
+// or after sunrise over that pitch. In June that would be 6:00, which nobody
+// asked for, and just before Christmas it would be 7:30 — hence the window on
+// the slot. Between those the time drifts with the season, so the winter games
+// kick off in daylight instead of fifty minutes before it.
+//
+// The organizer's per-game override (game_meta.time, applied in applyMeta)
+// still beats whatever this returns.
+export function slotTimeOn(slot, date) {
+  if (!slot.sunrise) return slot.time;
+  const rise = sunriseLocalHM(date.getFullYear(), date.getMonth() + 1, date.getDate(), {
+    ...PITCH,
+    tz: TEAM_TZ,
+  });
+  if (!rise) return slot.time;
+  return clampHM(ceilToStep(rise, 15), slot.sunrise.earliest, slot.sunrise.latest);
+}
+
+// When the light comes and goes on this game's date, as "HH:MM" each. Every
+// slot gets this, not just the sunrise-following one: the Thursday 7:30 game
+// is in full daylight in June and pitch dark by November, and the hero says
+// which.
+export function daylightFor(game) {
+  const [y, m, d] = game.date.split("-").map(Number);
+  const spot = { ...PITCH, tz: TEAM_TZ };
+  return { sunrise: sunriseLocalHM(y, m, d, spot), sunset: sunsetLocalHM(y, m, d, spot) };
+}
 
 // Keep a game "current" for a few hours after kickoff so people arriving late (or
 // the organizer) still land on today's poll rather than jumping to next week.
@@ -31,22 +75,29 @@ function ymd(d) {
 }
 
 // The next datetime this slot lands on, at or after `from` (minus grace).
+// Kickoff is resolved per candidate date, because a sunrise-following slot is
+// at a different time this week than next.
 function nextOccurrence(slot, from) {
-  const [h, m] = slot.time.split(":").map(Number);
-  const d = new Date(from);
-  d.setHours(h, m, 0, 0);
-  let add = (slot.weekday - d.getDay() + 7) % 7;
-  // If today's the day but kickoff (+grace) has already passed, roll a week.
-  if (add === 0 && d.getTime() + GRACE_MS <= from.getTime()) add = 7;
-  d.setDate(d.getDate() + add);
-  return d;
+  let add = (slot.weekday - from.getDay() + 7) % 7;
+  for (let i = 0; i < 2; i++) {
+    const d = new Date(from);
+    d.setDate(d.getDate() + add);
+    const [h, m] = slotTimeOn(slot, d).split(":").map(Number);
+    d.setHours(h, m, 0, 0);
+    // If today's the day but kickoff (+grace) has already passed, roll a week.
+    if (d.getTime() + GRACE_MS > from.getTime()) return d;
+    add += 7;
+  }
+  return null;
 }
 
 // The closest upcoming game across all slots. `date` (local YYYY-MM-DD) is the
 // stable key used to group votes/guests in the store.
 export function getNextGame(now = new Date()) {
   const from = teamNow(now);
-  const cands = SLOTS.map((slot) => ({ slot, when: nextOccurrence(slot, from) }));
+  const cands = SLOTS.map((slot) => ({ slot, when: nextOccurrence(slot, from) })).filter(
+    (c) => c.when,
+  );
   cands.sort((a, b) => a.when - b.when);
   const { slot, when } = cands[0];
   return {
@@ -54,7 +105,7 @@ export function getNextGame(now = new Date()) {
     date: ymd(when),
     when,
     weekday: slot.label,
-    time: slot.time,
+    time: slotTimeOn(slot, when),
     location: slot.location,
   };
 }

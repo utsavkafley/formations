@@ -23,7 +23,7 @@ async function loadFont(weight) {
 export default async function handler() {
   const g = nextGame();
 
-  let time = g.slot.time;
+  let time = g.time;
   let location = g.slot.location;
   let inCount = 0;
   let outCount = 0;

@@ -13,6 +13,7 @@ import {
 } from "./schedule.js";
 import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD, SIDE_LADDER } from "./squad.js";
+import { DEFAULT_KITS } from "./kits.js";
 import Crest from "./Crest.jsx";
 import { DaylightBar, Shirt, WeatherMark } from "./Glyphs.jsx";
 import { fetchKickoffWeather } from "./weather.js";
@@ -665,14 +666,17 @@ function Sides({ going }) {
       >
         {[0, 1].map((row) => (
           <div className="sd-row" key={row}>
-            {Array.from({ length: drawn.perSide }, (_, i) => (
-              <div
-                className={`sd-slot ${rung === i + 1 ? "ruled" : ""} ${rung && i >= rung ? "stretch" : ""}`}
-                key={i}
-              >
-                <Shirt kit={i * 2 + row < going ? (row ? "away" : "home") : "empty"} />
-              </div>
-            ))}
+            {Array.from({ length: drawn.perSide }, (_, i) => {
+              const kit = i * 2 + row < going ? (row ? "away" : "home") : "empty";
+              return (
+                <div
+                  className={`sd-slot ${rung === i + 1 ? "ruled" : ""} ${rung && i >= rung ? "stretch" : ""}`}
+                  key={i}
+                >
+                  <Shirt kit={kit} color={DEFAULT_KITS[kit]?.value} />
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

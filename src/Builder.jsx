@@ -3,20 +3,8 @@ import { toPng } from "html-to-image";
 import store from "./store.js";
 import { getNextGame } from "./schedule.js";
 import { CORE_SQUAD } from "./squad.js";
+import { TEAM_COLORS, DEFAULT_KITS } from "./kits.js";
 import Crest from "./Crest.jsx";
-
-const TEAM_COLORS = [
-  { name: "Red", value: "#e63946" },
-  { name: "Blue", value: "#1d6fe0" },
-  { name: "Green", value: "#2a9d3f" },
-  { name: "Orange", value: "#f08c00" },
-  { name: "Purple", value: "#7048e8" },
-  { name: "Teal", value: "#0b8a8a" },
-  { name: "Black", value: "#2b2b2b" },
-  { name: "Yellow", value: "#f1b000" },
-  { name: "Pink", value: "#e64980" },
-  { name: "White", value: "#e9ecef" },
-];
 
 const SQUAD_KEY = "formations.squad.v1";
 const FORMS_KEY = "formations.forms.v1"; // { [id]: "great" } — Good is the baseline
@@ -158,8 +146,8 @@ export default function Builder({ onNavigate }) {
   const [players, setPlayers] = useState([]);
   const [name, setName] = useState("");
   const [teams, setTeams] = useState({
-    A: { name: "Home", color: "#1d6fe0" },
-    B: { name: "Away", color: "#e63946" },
+    A: { name: "Home", color: DEFAULT_KITS.home.value },
+    B: { name: "Away", color: DEFAULT_KITS.away.value },
   });
   const [dragId, setDragId] = useState(null);
   const [dragging, setDragging] = useState(false);

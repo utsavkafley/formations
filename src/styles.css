@@ -11,7 +11,7 @@
     --teal-strong: #1d524f; /* hover / pressed */
     --teal-ink: #1d524f; /* small text on white or on a tint */
     --teal-tint: #e9f1f0; /* soft fill */
-    --teal-soft: #6ea8a3; /* the away kit: the same colour worn lighter, still solid enough to read as filled */
+    --teal-soft: #6ea8a3; /* a mid teal that reads on a tint: the sides card's goal line */
     --kit-line: #7aa29d; /* an empty place on the teamsheet — the palest teal that still holds its own at 30px */
     --teal-edge: #bcd6d3; /* border around a tinted fill */
     --orange: #b85c1a; /* accent · OUT · notices */
@@ -1067,7 +1067,14 @@ h3 {
 .shirt {
     width: 100%;
     height: auto;
+    /* White trim on every kit, the way a collar is on a real shirt. Inverting
+       it — dark trim on the lighter shirt — made the collar read as a hole
+       bitten out of the shoulder, and at 26px a dark mark at the neck has no
+       room to explain itself. */
+    --kit-trim: #ffffff;
 }
+/* The fill is whatever bib colour the caller passes; see kits.js for why the
+   pair is what it is. */
 .shirt .kit-body {
     fill: var(--kit);
     stroke: var(--kit);
@@ -1076,31 +1083,16 @@ h3 {
     stroke: var(--kit-trim);
 }
 /* An empty place is the same shape with nothing in it: white against the
-   pitch, outlined in a tone that actually carries at 30px. Filled against
-   empty is then a difference of kind rather than a step in value — the first
-   try separated them by lightness alone, and the lighter of the two filled
-   kits ended up closer to empty than to its own team. */
+   pitch, outlined in a tone that actually carries at 26px. Filled against
+   empty is then a difference of kind rather than a step in value — an earlier
+   pass separated the two kits by lightness alone, and the lighter of them
+   ended up closer to empty than to its own team. It takes no bib colour, so
+   it looks the same whatever the teams are wearing. */
 .shirt.kit-empty {
     --kit: var(--kit-line);
 }
 .shirt.kit-empty .kit-body {
     fill: var(--panel);
-}
-.shirt.kit-home {
-    --kit: var(--teal);
-    --kit-trim: var(--teal-soft);
-}
-/* The away kit: the same colour worn lighter, so the two rows read as two
-   sides without borrowing the orange that means OUT everywhere else. The
-   collar band carries the pairing a second time, in case the value step alone
-   is lost on a bright screen. */
-/* Light trim on both kits. Inverting it — dark trim on the lighter shirt —
-   made the collar read as a hole bitten out of the shoulder rather than a
-   band, and at 25px a 1.6px dark mark at the neck has no room to explain
-   itself. Light at the neck reads as trim on either colourway. */
-.shirt.kit-away {
-    --kit: var(--teal-soft);
-    --kit-trim: var(--teal-tint);
 }
 
 .tally {

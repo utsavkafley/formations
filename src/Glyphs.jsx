@@ -74,10 +74,17 @@ export function DaylightBar({ sunrise, sunset, kickoff, caption }) {
 // colour rounds every remaining corner and, on an empty place, is the shape.
 // The collar band is the one interior mark there is room for, and it earns its
 // place twice: it keeps the shirt from being a flat silhouette, and it is the
-// second thing separating the home row from the away row.
-export function Shirt({ kit = "empty" }) {
+// second thing separating the home row from the away row. A filled shirt is
+// painted in the bib colour the caller passes; an empty place has none, and
+// is drawn as the same outline whatever the teams are wearing.
+export function Shirt({ kit = "empty", color }) {
   return (
-    <svg className={`shirt kit-${kit}`} viewBox="0 0 28 28" aria-hidden="true">
+    <svg
+      className={`shirt kit-${kit}`}
+      style={color ? { "--kit": color } : undefined}
+      viewBox="0 0 28 28"
+      aria-hidden="true"
+    >
       <path
         className="kit-body"
         strokeWidth="2"

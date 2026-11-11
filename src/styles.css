@@ -783,13 +783,6 @@ h3 {
 
 /* Sits directly under the hour and the temperature it is describing, quiet
    enough that the time still leads the card. */
-.hero-sky {
-    margin-top: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--muted);
-}
-
 .hero-note {
     margin-top: 12px;
     font-size: 15px;
@@ -860,6 +853,18 @@ h3 {
     align-items: center;
     gap: 6px;
     margin-left: auto;
+}
+/* The forecast in words, ranged right so it ends flush under the temperature
+   it belongs to rather than under the hour. It gets the whole card width
+   rather than only the column the temperature occupies: inside that column it
+   had 135px, and the longer readings — "Overcast freezing afternoon" — broke
+   to two lines, so the hero changed height with the weather. */
+.hero-sky {
+    margin-top: 6px;
+    text-align: right;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
 }
 .wx-temp {
     font-size: 22px;

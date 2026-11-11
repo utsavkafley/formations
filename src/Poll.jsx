@@ -15,7 +15,7 @@ import { CORE_SQUAD, SIDE_LADDER } from "./squad.js";
 import { DEFAULT_KITS } from "./kits.js";
 import Crest from "./Crest.jsx";
 import { Shirt, WeatherMark } from "./Glyphs.jsx";
-import { fetchKickoffWeather } from "./weather.js";
+import { fetchKickoffWeather, matchdayBlurb } from "./weather.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
 // Peer ratings are PAUSED. While this is false the post-RSVP prompt never
@@ -307,7 +307,8 @@ export default function Poll({ onNavigate }) {
 
         <header className="hero">
           {/* Four things, in the order you'd say them out loud: who and when,
-              where, what time, and what it'll be like. Then the one button. */}
+              where, what time, and what it'll be like — the last of those as a
+              mark and a number, then in words. Then the one button. */}
           <div className="hero-brand">
             <Crest size={46} />
             <h1 className="hero-title">YOLO {dateParts(game.date).weekday} Pickup</h1>
@@ -327,6 +328,7 @@ export default function Poll({ onNavigate }) {
               </span>
             )}
           </div>
+          {weather && <div className="hero-sky">{matchdayBlurb(weather, eff.time)}</div>}
           {eff.note && <div className="hero-note">{eff.note}</div>}
           <button className={`hero-rsvp ${myVote || "none"}`} onClick={openVoteSheet}>
             {myVote ? statusLabel : "Tap to RSVP"}

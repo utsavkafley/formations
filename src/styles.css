@@ -781,6 +781,15 @@ h3 {
 }
 
 
+/* Sits directly under the hour and the temperature it is describing, quiet
+   enough that the time still leads the card. */
+.hero-sky {
+    margin-top: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
 .hero-note {
     margin-top: 12px;
     font-size: 15px;

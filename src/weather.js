@@ -51,19 +51,55 @@ export async function fetchKickoffWeather({ lat, lon, tz, date, time }, signal) 
   };
 }
 
-// What kind of game to expect, in a few words. NOT RENDERED at the moment —
-// the hero was cut back to the time and the temperature, and this line went
-// with the rest. Kept whole, and still correct, so putting it back is one
-// line in Poll.jsx. Ordered by what would actually spoil the game: wet ball
-// first, then cold hands, then heat, wind.
-export function matchdayHeadline(w) {
+// The forecast in three words: what the sky is doing, how cold it will
+// actually feel, and which part of the day the game falls in. "Clear cold
+// morning", "Rainy mild evening". The mark and the number above it already
+// say overcast and 54° — what they cannot say is whether 54° at seven in the
+// morning is worth a second layer, which is the thing people actually want
+// off this line.
+//
+// This replaces an advice line that used to live here ("Wet ball — 55% chance
+// of rain", "Freezing — gloves and a base layer"). It was withdrawn when the
+// hero was cut back, and what went back in its place is description rather
+// than instruction: the group has played here for years and would rather be
+// told the weather than told what to wear. It is in the history if the
+// verdict is ever wanted again.
+const SKY = {
+  clear: "Clear",
+  "mostly clear": "Clear",
+  overcast: "Overcast",
+  fog: "Foggy",
+  drizzle: "Drizzly",
+  rain: "Rainy",
+  showers: "Showery",
+  snow: "Snowy",
+  "snow showers": "Snowy",
+  thunderstorms: "Stormy",
+};
+
+// Bands off the APPARENT temperature, not the reading: wind and damp are most
+// of what a 6:45 kickoff in November feels like, and the number beside this
+// line is already the plain one.
+function howItFeels(f) {
+  if (f <= 25) return "freezing";
+  if (f <= 38) return "cold";
+  if (f <= 50) return "chilly";
+  if (f <= 64) return "mild";
+  if (f <= 78) return "warm";
+  return "hot";
+}
+
+// Both slots are named: the Sunday game kicks off at dawn and the Thursday one
+// after dark, and "day" would be wrong for either.
+function partOfDay(time) {
+  const h = Number(time.slice(0, 2));
+  if (h < 11) return "morning";
+  if (h < 17) return "afternoon";
+  if (h < 21) return "evening";
+  return "night";
+}
+
+export function matchdayBlurb(w, time) {
   if (!w) return null;
-  const wet = w.kind === "rain" || w.kind === "snow" || w.rainChance >= 55;
-  if (w.kind === "snow") return "Snow on the pitch";
-  if (wet) return `Wet ball — ${w.rainChance}% chance of ${w.text}`;
-  if (w.feels <= 32) return "Freezing — gloves and a base layer";
-  if (w.wind >= 18) return `Windy at ${w.wind} mph — nothing long will hold its line`;
-  if (w.feels <= 45) return "Cold start, worth a proper warm-up";
-  if (w.temp >= 85) return "Hot — bring more water than you think";
-  return "Good football weather";
+  return `${SKY[w.text] || "Cloudy"} ${howItFeels(w.feels)} ${partOfDay(time)}`;
 }

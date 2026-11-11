@@ -19,6 +19,17 @@
     --orange-tint: #fcf0e4;
     --orange-edge: #edcfae;
 
+    /* A third hue, for guests only. The pair above carries IN and OUT, and a
+       guest is neither — they are going, so they cannot be orange, but they
+       are not one of the regulars either. Violet is the only reading left.
+       Note it is the same LIGHTNESS as the teal, near enough (1.2:1), so it
+       is told apart by hue alone and would fail for a colour-blind eye: the
+       dotted border beside it is not decoration, it is the half of the signal
+       that survives. */
+    --guest: #4a4396; /* 8.3:1 on white */
+    --guest-tint: #f1eefb;
+    --guest-edge: #8473c6; /* 4.0:1 on white, 3.5:1 on its own tint */
+
     /* ---- Neutrals (white, cooled a touch toward the teal) ---- */
     --bg: #f5f7f7;
     --panel: #ffffff;
@@ -1185,10 +1196,17 @@ h3 {
     background: var(--teal-tint);
     border-color: var(--teal-edge);
 }
-.namechip.guest {
-    background: var(--panel);
-    border: 1px dashed var(--teal-edge);
-    color: var(--teal-ink);
+/* A guest: going, but not one of the regulars. Two cues, because neither is
+   enough alone — violet instead of teal, which most people read instantly,
+   and a dotted edge, which survives a colour-blind eye and a grayscale
+   screenshot. It used to say "+1" and be outlined in a hairline at 1.5:1
+   against the card, so the words were doing all the work and the border none.
+   Written at three classes because `.roster-block.in .namechip` is three and
+   was quietly winning the background and the border colour off it. */
+.roster-block.in .namechip.guest {
+    background: var(--guest-tint);
+    border: 1.5px dotted var(--guest-edge);
+    color: var(--guest);
 }
 /* Your own chip is outlined so you can spot yourself — and notice instantly if
    the app is remembering the wrong person. */
@@ -1396,15 +1414,17 @@ h3 {
     gap: 8px;
     margin-top: 12px;
 }
+/* Your own guests, in the RSVP sheet — same violet and same dotted edge as
+   the chip they will become in the roster, so the two read as one thing. */
 .guest2-chip {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 7px 8px 7px 12px;
     border-radius: 999px;
-    background: var(--panel);
-    border: 1px dashed var(--teal-edge);
-    color: var(--teal-ink);
+    background: var(--guest-tint);
+    border: 1.5px dotted var(--guest-edge);
+    color: var(--guest);
     font-size: 13px;
     font-weight: 600;
 }

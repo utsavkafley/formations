@@ -388,9 +388,18 @@ export default function Poll({ onNavigate }) {
                   {m.name}
                 </span>
               ))}
+              {/* No "+1" on the chip — people read it as a second, nameless
+                  person rather than as a mark on this one. The dotted violet
+                  says guest on its own, and who brought them stays in the
+                  tooltip and the label rather than on the face of the chip. */}
               {data.guests.map((g) => (
-                <span key={g.id} className="namechip guest" title={`Guest of ${g.hostName}`}>
-                  {g.name} +1
+                <span
+                  key={g.id}
+                  className="namechip guest"
+                  title={`Guest of ${g.hostName}`}
+                  aria-label={`${g.name}, guest of ${g.hostName}`}
+                >
+                  {g.name}
                 </span>
               ))}
             </div>

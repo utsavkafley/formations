@@ -1,4 +1,4 @@
-import { sunriseLocalHM, sunsetLocalHM, ceilToStep, clampHM } from "../lib/sunrise.js";
+import { sunriseLocalHM, ceilToStep, clampHM } from "../lib/sunrise.js";
 
 // Recurring game slots. `weekday` follows JS Date.getDay(): 0 = Sunday … 6 = Sat.
 // These are the *defaults*; the organizer can override time/location per game via
@@ -38,16 +38,6 @@ export function slotTimeOn(slot, date) {
   });
   if (!rise) return slot.time;
   return clampHM(ceilToStep(rise, 15), slot.sunrise.earliest, slot.sunrise.latest);
-}
-
-// When the light comes and goes on this game's date, as "HH:MM" each. Every
-// slot gets this, not just the sunrise-following one: the Thursday 7:30 game
-// is in full daylight in June and pitch dark by November, and the hero says
-// which.
-export function daylightFor(game) {
-  const [y, m, d] = game.date.split("-").map(Number);
-  const spot = { ...PITCH, tz: TEAM_TZ };
-  return { sunrise: sunriseLocalHM(y, m, d, spot), sunset: sunsetLocalHM(y, m, d, spot) };
 }
 
 // Keep a game "current" for a few hours after kickoff so people arriving late (or

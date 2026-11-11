@@ -875,36 +875,6 @@ h3 {
    Night at one end, day at the other, and the sun on the seam between them.
    Kickoff is ticked where it falls; the hour itself is written on the line
    above. */
-.daylight {
-    position: relative;
-    margin-top: 12px;
-}
-.dl-bar {
-    position: relative;
-    height: 30px;
-    border-radius: 999px;
-    box-shadow: inset 0 0 0 1px rgba(18, 34, 32, 0.12);
-}
-.dl-sun {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    pointer-events: none;
-}
-/* A white tick reads against both ends of the gradient; the hairline round it
-   keeps it from vanishing into the pale end. */
-.dl-tick {
-    position: absolute;
-    top: -4px;
-    bottom: -4px;
-    width: 3px;
-    margin-left: -1.5px;
-    border-radius: 2px;
-    background: var(--panel);
-    box-shadow: 0 0 0 1px rgba(18, 34, 32, 0.4);
-}
-
 /* Discreet corner affordance — organizers know it's there, nobody else has to
    read past it. */
 .hero-edit {

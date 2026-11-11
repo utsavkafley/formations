@@ -7,7 +7,6 @@ import {
   prettyTime,
   gameName,
   dateParts,
-  daylightFor,
   PITCH,
   TEAM_TZ,
 } from "./schedule.js";
@@ -15,7 +14,7 @@ import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD, SIDE_LADDER } from "./squad.js";
 import { DEFAULT_KITS } from "./kits.js";
 import Crest from "./Crest.jsx";
-import { DaylightBar, Shirt, WeatherMark } from "./Glyphs.jsx";
+import { Shirt, WeatherMark } from "./Glyphs.jsx";
 import { fetchKickoffWeather } from "./weather.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
@@ -43,29 +42,6 @@ export default function Poll({ onNavigate }) {
 
   const eff = applyMeta(game, data.meta);
   const pendingKey = `yolo.pendingVote.${game.date}`;
-
-  // Where the game sits in the day. The bar needs both ends of the light;
-  // `caption` is what a screen reader gets in place of the picture.
-  const sky = useMemo(() => {
-    const { sunrise, sunset } = daylightFor(game);
-    if (!sunrise || !sunset) return null;
-    const mins = (t) => {
-      const [h, m] = t.split(":").map(Number);
-      return h * 60 + m;
-    };
-    const kick = mins(eff.time);
-    const up = mins(sunrise);
-    const down = mins(sunset);
-    const morning = Math.abs(kick - up) <= Math.abs(kick - down);
-    const dark = kick < up || kick > down;
-    const turn = morning ? `sunrise ${prettyTime(sunrise)}` : `sunset ${prettyTime(sunset)}`;
-    return {
-      sunrise,
-      sunset,
-      kickoff: eff.time,
-      caption: `Kick-off ${prettyTime(eff.time)}, ${dark ? "in the dark" : "in daylight"} — ${turn}`,
-    };
-  }, [game, eff.time]);
 
   // Forecast for the hour of kickoff. Best-effort: no spinner, no error
   // state — if it doesn't come back, the line simply isn't there.
@@ -330,9 +306,8 @@ export default function Poll({ onNavigate }) {
         )}
 
         <header className="hero">
-          {/* Five things, in the order you'd say them out loud: who and when,
-              where, what time and what it'll be like, and the strip that puts
-              that hour in the day. Then the one button. */}
+          {/* Four things, in the order you'd say them out loud: who and when,
+              where, what time, and what it'll be like. Then the one button. */}
           <div className="hero-brand">
             <Crest size={46} />
             <h1 className="hero-title">YOLO {dateParts(game.date).weekday} Pickup</h1>
@@ -352,7 +327,6 @@ export default function Poll({ onNavigate }) {
               </span>
             )}
           </div>
-          {sky && <DaylightBar {...sky} />}
           {eff.note && <div className="hero-note">{eff.note}</div>}
           <button className={`hero-rsvp ${myVote || "none"}`} onClick={openVoteSheet}>
             {myVote ? statusLabel : "Tap to RSVP"}

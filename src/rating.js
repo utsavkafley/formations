@@ -13,6 +13,8 @@
 // average ratings (PRIOR_N). With four of those, two real ratings carry a third
 // of the weight and eight carry two thirds. Nobody's score is confidently
 // extreme until the evidence is.
+import { STRENGTH_AREA } from "./strengths.js";
+
 const POINTS = { ok: 0, good: 1, great: 2 };
 
 // Four is a judgement call, not a derivation: it is roughly the median number
@@ -122,4 +124,49 @@ export function recentCounts(rows = [], now = new Date()) {
     counts.set(r.subject_id, (counts.get(r.subject_id) || 0) + 1);
   }
   return counts;
+}
+
+/* ------------------------------------------------------------------ *
+ * Where somebody plays, guessed from what they are praised for         *
+ * ------------------------------------------------------------------ */
+
+// Each strength already carries an area — strengths.js has said so since it was
+// written ("aggregation can suggest a position") and nothing ever read it. The
+// build screen defaulted every player to MID instead, which put a whole side
+// in one line of eight and exported that as the teamsheet.
+//
+// Counts, not shares. MID has eight strengths to ATT's and DEF's six, so
+// dividing by the size of each list looks like the fair correction — but tried
+// against the real tags it moved a player with nineteen midfield mentions and
+// fifteen attacking ones into attack on a rounding difference, and tipped the
+// squad to eighteen defenders. What a rater picked is the signal; how many
+// options sat beside it is not.
+const AREA_MIN_TAGS = 3;
+
+// rows → Map(memberId → "DEF" | "MID" | "ATT"). Players below the floor are
+// left out, and the caller falls back to MID for them: a guess from one tag is
+// not a guess, and MID is where an unknown player does least harm.
+export function areaGuesses(rows = []) {
+  const tally = new Map();
+  for (const r of rows) {
+    for (const key of r.strengths || []) {
+      const area = STRENGTH_AREA[key];
+      // GK is a real area but not a line on this pitch, and the intangibles
+      // carry null on purpose so they never sway where somebody stands.
+      if (!area || area === "GK") continue;
+      const t = tally.get(r.subject_id) || { DEF: 0, MID: 0, ATT: 0 };
+      t[area] += 1;
+      tally.set(r.subject_id, t);
+    }
+  }
+
+  const guess = new Map();
+  for (const [id, t] of tally) {
+    const total = t.DEF + t.MID + t.ATT;
+    if (total < AREA_MIN_TAGS) continue;
+    // Ties go to MID, the same way no data does.
+    const best = t.MID >= t.DEF && t.MID >= t.ATT ? "MID" : t.DEF >= t.ATT ? "DEF" : "ATT";
+    guess.set(id, best);
+  }
+  return guess;
 }

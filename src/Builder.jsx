@@ -4,22 +4,16 @@ import store from "./store.js";
 import { getNextGame } from "./schedule.js";
 import { CORE_SQUAD } from "./squad.js";
 import { TEAM_COLORS, DEFAULT_KITS } from "./kits.js";
-import { ratingIndex, formLevels } from "./rating.js";
+import { ratingIndex, formLevels, areaGuesses } from "./rating.js";
 import Crest from "./Crest.jsx";
 import { FormChevrons } from "./Glyphs.jsx";
 
 const SQUAD_KEY = "formations.squad.v1";
-const FORMS_KEY = "formations.forms.v1"; // { [id]: "great" } — Good is the baseline
 const AREAS_KEY = "formations.areas.v1"; // { [id]: "ATT" | "DEF" } — MID is the baseline
 const SNAP = 0.03; // alignment snap threshold (fraction of pitch)
 let guestId = 1;
 
 const AREAS = ["DEF", "MID", "ATT"];
-// How much a ★ is worth on top of a player's standing. The ★ used to be the
-// only signal the balancer had; now it means "on form today" over a baseline
-// the squad's own ratings already set, so it nudges rather than decides.
-const ON_FORM = 1.3;
-
 // How the split came out, in words. An odd number of players is the thing this
 // has to get right: with ten against nine the extra body is worth about five
 // per cent of the pitch on its own, so a gap that size is not the balancer
@@ -230,7 +224,6 @@ export default function Builder({ onNavigate }) {
   const [savedNote, setSavedNote] = useState(false);
   // Lazy-init from localStorage so the values are present on first render and
   // the persistence effects below don't clobber them on mount.
-  const [forms, setForms] = useState(() => readJSON(FORMS_KEY)); // { id: "great" }
   const [areas, setAreas] = useState(() => readJSON(AREAS_KEY)); // { id: "ATT" | "DEF" }
   const pitchRef = useRef(null);
 
@@ -300,23 +293,23 @@ export default function Builder({ onNavigate }) {
     };
   }, [core]);
 
-  // Persist form/area tweaks so they carry to next session.
-  useEffect(() => {
-    localStorage.setItem(FORMS_KEY, JSON.stringify(forms));
-  }, [forms]);
+  // Persist position tweaks so they carry to next session.
   useEffect(() => {
     localStorage.setItem(AREAS_KEY, JSON.stringify(areas));
   }, [areas]);
 
-  const getForm = (id) => forms[id] || "good";
-  const getArea = (id) => areas[id] || "MID";
+  // An organizer's own choice first, then what the squad's praise suggests,
+  // then MID. Tapping the chip still overrides either, and that override is
+  // what persists — a guess is a starting point, not a decision.
+  const getArea = (id) => areas[id] || guessedAreas.get(id) || "MID";
 
   // What the squad has said about each other over the season. Best-effort: if
   // it can't be fetched the index is empty, every weight falls back to the
-  // baseline, and the balancer splits on areas and the ★ alone — which is
-  // exactly what it did before any of this existed.
+  // baseline, every position falls back to MID and the balancer splits on size
+  // alone. Degraded, but it still turns out two teams.
   const [ratings, setRatings] = useState(() => ratingIndex([]));
   const [chevrons, setChevrons] = useState(() => new Map());
+  const [guessedAreas, setGuessedAreas] = useState(() => new Map());
   useEffect(() => {
     let alive = true;
     store
@@ -325,6 +318,7 @@ export default function Builder({ onNavigate }) {
         if (!alive) return;
         setRatings(ratingIndex(rows));
         setChevrons(formLevels(rows));
+        setGuessedAreas(areaGuesses(rows));
       })
       .catch(() => {});
     return () => {
@@ -332,23 +326,12 @@ export default function Builder({ onNavigate }) {
     };
   }, []);
 
-  // The scores bunch up: shrinking toward the mean leaves almost the whole
-  // squad between 0.8 and 1.6 out of 2, so a bar drawn against 0..2 moved
-  // about seven pixels across the entire group and every mid player looked
-  // identical. Drawn against half a point either side of the group's own
-  // average instead, the same differences fill the track.
-  const barFill = (score) => {
-    const lo = ratings.prior - 0.5;
-    const hi = ratings.prior + 0.5;
-    return Math.max(4, Math.min(100, ((score - lo) / (hi - lo)) * 100));
-  };
+  // The squad's own ratings, and nothing else. There was a ★ an organizer
+  // could tap to call somebody on form, worth a 30% bump on top; it has gone
+  // with the column it lived in, so a split is now entirely what the group has
+  // said about each other.
+  const getWeight = (id) => ratings.index.get(id)?.weight ?? ratings.baseline;
 
-  const getWeight = (id) =>
-    (ratings.index.get(id)?.weight ?? ratings.baseline) * (getForm(id) === "great" ? ON_FORM : 1);
-
-  function toggleForm(id) {
-    setForms((f) => ({ ...f, [id]: getForm(id) === "great" ? "good" : "great" }));
-  }
   function cycleArea(id) {
     const next = AREAS[(AREAS.indexOf(getArea(id)) + 1) % AREAS.length];
     setAreas((a) => ({ ...a, [id]: next }));
@@ -676,14 +659,8 @@ export default function Builder({ onNavigate }) {
             title={allComing ? "Clear all" : "Select all"}
           />
           <span className="col-name">Name</span>
-          <span className="col-rated">Rated</span>
           <span className="col-form">Form</span>
           <span className="col-pos">Position</span>
-        </div>
-        {/* The only non-hover explanation of either mark. `title` tooltips do
-            not fire on a phone, which is the device this is used on. */}
-        <div className="squad-legend">
-          Bar is what the squad rates them. ★ is on form today, and counts extra.
         </div>
 
         <div className={`squad-list ${hover === "bench" ? "drop-hover" : ""}`}>
@@ -691,10 +668,7 @@ export default function Builder({ onNavigate }) {
             const coming = isComing(m.id);
             const player = players.find((p) => p.id === m.id);
             const placed = player && player.team != null;
-            const great = getForm(m.id) === "great";
             const area = getArea(m.id);
-            const rated = ratings.index.get(m.id);
-            const score = rated ? rated.score : ratings.prior;
             return (
               <div key={m.id} className={`squad-row ${coming ? "" : "out"}`}>
                 <input
@@ -729,28 +703,9 @@ export default function Builder({ onNavigate }) {
                   {placed && <span className="on-dot" />}
                   {m.name}
                 </span>
-                {/* What the squad's own ratings say, so the balancer is not
-                    working off numbers nobody can see. Faint when there is
-                    little behind it — two ratings and five are not the same
-                    claim, and the bar says so without a second column. */}
-                <span
-                  className={`rate-chip ${rated ? "" : "none"}`}
-                  title={
-                    rated
-                      ? `${rated.n} rating${rated.n === 1 ? "" : "s"} from the squad — average ${rated.raw.toFixed(1)} of 2`
-                      : "Not rated yet — the balancer treats them as average"
-                  }
-                >
-                  {rated && <span className="rate-fill" style={{ width: `${barFill(score)}%` }} />}
+                <span className="col-form-cell">
+                  <FormChevrons level={chevrons.get(m.id)} />
                 </span>
-                <FormChevrons level={chevrons.get(m.id)} />
-                <button
-                  className={`form-toggle ${great ? "great" : ""}`}
-                  title={great ? "On form today — click to clear" : "Mark as on form today"}
-                  onClick={() => toggleForm(m.id)}
-                >
-                  {great ? "★" : "☆"}
-                </button>
                 <button
                   className={`area-chip area-${area}`}
                   title="Usual area — click to cycle DEF / MID / ATT"
@@ -771,11 +726,6 @@ export default function Builder({ onNavigate }) {
             );
           })}
         </div>
-        <p className="hint">
-          Tick who's here, set each player's usual area and ★ whoever is on form,
-          then hit <b>Balance teams</b> for two fair sides — or drag people on
-          manually (press &amp; hold on touch). Drop back here to bench.
-        </p>
       </aside>
 
       <main className="main">

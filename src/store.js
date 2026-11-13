@@ -44,6 +44,32 @@ const memberId = (name) =>
     .toString(36)
     .slice(2, 6)}`;
 
+// Patches come in the shape the rest of this module speaks — the same keys
+// `asCollection` hands out — and are translated here. The two halves of this
+// store disagreed for a while: the remote one took raw column names while the
+// localStorage one merged whatever it was given into an app-shaped object, so
+// `{ per_person_cents }` updated the database and silently wrote a junk key on
+// a device with no Supabase keys.
+const COLUMN = {
+  title: "title",
+  targetCents: "target_cents",
+  perPersonCents: "per_person_cents",
+  note: "note",
+  closed: "closed",
+  name: "name",
+  active: "active",
+  sortOrder: "sort_order",
+};
+function toColumns(patch) {
+  const out = {};
+  for (const [k, v] of Object.entries(patch)) {
+    const col = COLUMN[k];
+    if (!col) throw new Error(`unknown field "${k}"`);
+    out[col] = v;
+  }
+  return out;
+}
+
 const asMember = (r) => ({ id: r.id, name: r.name, active: r.active !== false, core: true });
 const asCollection = (r) => ({
   id: r.id,
@@ -220,7 +246,7 @@ const remote = {
     return asMember(row);
   },
   async updateMember(id, patch) {
-    const { error } = await supabase.from("members").update(patch).eq("id", id);
+    const { error } = await supabase.from("members").update(toColumns(patch)).eq("id", id);
     if (error) throw new Error(error.message);
   },
 
@@ -245,7 +271,7 @@ const remote = {
     return asCollection({ ...row, opened_on: today(), closed: false });
   },
   async updateCollection(id, patch) {
-    const { error } = await supabase.from("collections").update(patch).eq("id", id);
+    const { error } = await supabase.from("collections").update(toColumns(patch)).eq("id", id);
     if (error) throw new Error(error.message);
   },
   async removeCollection(id) {

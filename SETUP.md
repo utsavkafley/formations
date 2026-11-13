@@ -30,9 +30,10 @@ so your IN/OUT choice sticks to you on return visits.
 ## 2b. Contributions and the organizer passcode
 
 `/money` shows what the group has put in: the current collection (what it is
-for, the total it needs, the share per head), a meter, and every squad member
-with what they have paid. Everyone can read it — it is linked from the poll,
-top right.
+for, the total it needs, the share per head), a meter, and the people who have
+paid. Only them — a list of all thirty-six with dashes against most of it reads
+as a wall of people who haven't. Everyone can read the page; it is linked from
+the banknote in the poll's top-right corner.
 
 Changing anything needs the **organizer passcode**. The way in is the faint
 banknote in the top-right corner of the poll, then the dot in the corner of
@@ -59,8 +60,11 @@ without going back to SQL.
 An organizer can:
 
 - start a collection and close it, and switch between past ones
-- record a payment against anyone (tap their row), with an optional note
-- add a squad member, and fix a name
+- set the amount per person, then mark people down by dragging their name into
+  the **Contributed** box — or tapping it, which does the same thing. Both,
+  because this gets used on a phone beside a pitch. Dropping a name records the
+  per-person amount; the `×` on a name in the box takes it back off.
+- add players and fix names on **`/squad`**, linked from the organizer tools
 
 **What the passcode is and is not.** It gates the screen, not the database.
 This app has no login and talks to Supabase with the anon key, so the tables

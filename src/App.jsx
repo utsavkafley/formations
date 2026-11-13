@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Poll from "./Poll.jsx";
 import Builder from "./Builder.jsx";
 import Money from "./Money.jsx";
+import Squad from "./Squad.jsx";
 // import Players from "./Players.jsx"; // ← re-enable with the route below
 
 // Tiny path router (no dependency). `/` is the shareable poll landing so link
@@ -17,6 +18,7 @@ function viewFor(pathname) {
   const path = pathname.replace(/\/+$/, "");
   if (path === "/build") return "build";
   if (path === "/money") return "money";
+  if (path === "/squad") return "squad";
   // if (path === "/feature/profiles") return "players";
   return "poll";
 }
@@ -38,6 +40,7 @@ export default function App() {
 
   if (view === "build") return <Builder onNavigate={navigate} />;
   if (view === "money") return <Money onNavigate={navigate} />;
+  if (view === "squad") return <Squad onNavigate={navigate} />;
   // if (view === "players") return <Players onNavigate={navigate} />;
   return <Poll onNavigate={navigate} />;
 }

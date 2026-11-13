@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import store, { hasRemote } from "./store.js";
 import Crest from "./Crest.jsx";
 import {
@@ -10,10 +10,11 @@ import {
   endAdminSession,
 } from "./admin.js";
 
-// What the group has put in. Everyone can read this page; only a browser
-// holding the organizer passcode can change anything on it, and the controls
-// simply are not rendered otherwise — a disabled button that everyone can see
-// invites people to ask why it is disabled.
+// What the group has put in. The page lists the people who HAVE contributed —
+// not the whole squad with dashes against most of it. Who is missing is the
+// organizer's problem to chase, and they can see it on the board below; for
+// everyone else a list of thirty-six names with four amounts in it reads as a
+// wall of people who haven't paid.
 
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -103,9 +104,16 @@ export default function Money({ onNavigate }) {
     return m;
   }, [paid]);
 
+  const nameOf = useMemo(() => {
+    const m = new Map(members.map((x) => [x.id, x.name]));
+    // Somebody removed from the squad can still have paid into an old round,
+    // and dropping their name would make the total not add up.
+    return (id) => m.get(id) || "Former member";
+  }, [members]);
+
   const raised = useMemo(() => paid.reduce((n, p) => n + p.amountCents, 0), [paid]);
   const share = picked?.perPersonCents || null;
-  const settled = share ? members.filter((m) => (byMember.get(m.id) || 0) >= share).length : null;
+  const settled = share ? [...byMember.values()].filter((c) => c >= share).length : byMember.size;
   const pct = picked?.targetCents ? Math.min(100, (raised / picked.targetCents) * 100) : null;
 
   async function guard(fn) {
@@ -119,6 +127,20 @@ export default function Money({ onNavigate }) {
       setBusy(false);
     }
   }
+
+  const give = (memberId, amountCents) =>
+    guard(async () => {
+      await store.addContribution({ collectionId: picked.id, memberId, amountCents });
+      await reloadPaid(picked.id);
+    });
+
+  const ungive = (memberId) =>
+    guard(async () => {
+      for (const p of paid.filter((x) => x.memberId === memberId)) {
+        await store.removeContribution(p.id);
+      }
+      await reloadPaid(picked.id);
+    });
 
   return (
     <div className="poll">
@@ -143,10 +165,6 @@ export default function Money({ onNavigate }) {
               Organizer
             </button>
           ) : (
-            /* It said "·" to begin with, on the theory that the people who
-               need it know where it is. They did; everyone else had no way to
-               tell it apart from punctuation, including the organizers who had
-               been told and still had to hunt. It says what it is now. */
             <button className="admin-link" onClick={() => setGate(true)}>
               Admin
             </button>
@@ -212,9 +230,7 @@ export default function Money({ onNavigate }) {
               )}
 
               <div className="drive-note">
-                {settled != null
-                  ? `${settled} of ${members.length} have put in their share`
-                  : `${byMember.size} ${byMember.size === 1 ? "person has" : "people have"} put in`}
+                {settled} of {members.length} have put in
                 {picked.note ? ` · ${picked.note}` : ""}
               </div>
             </section>
@@ -233,39 +249,33 @@ export default function Money({ onNavigate }) {
               </div>
             )}
 
-            <Ledger
-              members={members}
-              byMember={byMember}
-              share={share}
-              paid={paid}
-              admin={admin}
-              busy={busy}
-              onAdd={(memberId, amountCents, note) =>
-                guard(async () => {
-                  await store.addContribution({
-                    collectionId: picked.id,
-                    memberId,
-                    amountCents,
-                    note,
-                  });
-                  await reloadPaid(picked.id);
-                })
-              }
-              onRemove={(id) =>
-                guard(async () => {
-                  await store.removeContribution(id);
-                  await reloadPaid(picked.id);
-                })
-              }
-            />
+            <Contributed byMember={byMember} nameOf={nameOf} share={share} />
+
+            {admin && (
+              <GiveBoard
+                members={members}
+                byMember={byMember}
+                share={share}
+                busy={busy}
+                nameOf={nameOf}
+                onSetShare={(cents) =>
+                  guard(async () => {
+                    await store.updateCollection(picked.id, { perPersonCents: cents });
+                    setCollections(await store.fetchCollections());
+                  })
+                }
+                onGive={give}
+                onUngive={ungive}
+              />
+            )}
           </>
         )}
 
         {admin && (
           <AdminTools
             picked={picked}
-            members={members}
             busy={busy}
+            onNavigate={onNavigate}
             onNewCollection={(fields) =>
               guard(async () => {
                 const c = await store.addCollection(fields);
@@ -278,18 +288,6 @@ export default function Money({ onNavigate }) {
               guard(async () => {
                 await store.updateCollection(picked.id, { closed: !picked.closed });
                 setCollections(await store.fetchCollections());
-              })
-            }
-            onAddMember={(name) =>
-              guard(async () => {
-                await store.addMember(name);
-                await load();
-              })
-            }
-            onRenameMember={(id, name) =>
-              guard(async () => {
-                await store.updateMember(id, { name });
-                await load();
               })
             }
           />
@@ -305,114 +303,176 @@ export default function Money({ onNavigate }) {
   );
 }
 
-// Every member, every time, in the order people scan for their own name. The
-// ones who have not put in are the point of the page, so they are not hidden
-// behind a filter — they are just the rows with nothing in the amount column.
-function Ledger({ members, byMember, share, paid, admin, busy, onAdd, onRemove }) {
-  const [openId, setOpenId] = useState(null);
+// The people who have put in, and nobody else.
+function Contributed({ byMember, nameOf, share }) {
+  const rows = [...byMember.entries()].sort((a, b) => nameOf(a[0]).localeCompare(nameOf(b[0])));
 
   return (
-    <section className="roster-block">
-      <h3>Who has put in</h3>
-      <div className="ledger">
-        {members.map((m) => {
-          const amount = byMember.get(m.id) || 0;
-          const done = share ? amount >= share : amount > 0;
-          return (
-            <div key={m.id}>
-              <div
-                className={`ledger-row ${done ? "done" : ""} ${admin ? "editable" : ""}`}
-                onClick={admin ? () => setOpenId(openId === m.id ? null : m.id) : undefined}
-                role={admin ? "button" : undefined}
-                tabIndex={admin ? 0 : undefined}
-                onKeyDown={
-                  admin
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setOpenId(openId === m.id ? null : m.id);
-                        }
-                      }
-                    : undefined
-                }
-              >
-                <span className="ledger-name">{m.name}</span>
-                <span className="ledger-amount">{amount ? dollars(amount) : "—"}</span>
-              </div>
-              {admin && openId === m.id && (
-                <PayForm
-                  busy={busy}
-                  share={share}
-                  entries={paid.filter((p) => p.memberId === m.id)}
-                  onAdd={(cents, note) => {
-                    onAdd(m.id, cents, note);
-                    setOpenId(null);
-                  }}
-                  onRemove={onRemove}
-                />
-              )}
+    <section className="roster-block in">
+      <h3>Contributed</h3>
+      {rows.length === 0 ? (
+        <div className="roster-empty">Nobody yet.</div>
+      ) : (
+        <div className="ledger">
+          {rows.map(([id, amount]) => (
+            <div key={id} className={`ledger-row ${!share || amount >= share ? "done" : "part"}`}>
+              <span className="ledger-name">{nameOf(id)}</span>
+              <span className="ledger-amount">
+                {dollars(amount)}
+                {share && amount < share && <em> of {dollars(share)}</em>}
+              </span>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-function PayForm({ busy, share, entries, onAdd, onRemove }) {
-  const [amount, setAmount] = useState(share ? String(share / 100) : "");
-  const [note, setNote] = useState("");
-  const cents = parseAmount(amount);
+// Marking somebody down as having paid: set the share once, then drag their
+// name into the box — or just tap it, which does the same thing. Both, because
+// this is used standing by a pitch on a phone: dragging is the gesture the
+// instruction describes, and tapping is the one that works when you are
+// holding a ball under one arm. HTML5 drag-and-drop is not used anywhere here;
+// it does not fire on touch at all.
+function GiveBoard({ members, byMember, share, busy, nameOf, onSetShare, onGive, onUngive }) {
+  const [draft, setDraft] = useState(share ? String(share / 100) : "");
+  const [ghost, setGhost] = useState(null); // { name, x, y }
+  const [over, setOver] = useState(false);
+  const press = useRef(null);
+
+  useEffect(() => {
+    setDraft(share ? String(share / 100) : "");
+  }, [share]);
+
+  const paidIds = new Set(byMember.keys());
+  const waiting = members.filter((m) => !paidIds.has(m.id));
+  const inBox = [...byMember.keys()];
+
+  function commitShare() {
+    const cents = parseAmount(draft);
+    if (cents && cents !== share) onSetShare(cents);
+    else if (!cents) setDraft(share ? String(share / 100) : "");
+  }
+
+  // One press handles both gestures: a release that never travelled is a tap,
+  // a release over the box after travelling is a drop. Anything else is a
+  // scroll the person started on top of a chip, and is left alone.
+  function onPointerDown(e, m) {
+    if (!share || busy) return;
+    if (e.button != null && e.button > 0) return;
+    press.current = { id: m.id, name: m.name, x: e.clientX, y: e.clientY, dragging: false };
+  }
+
+  useEffect(() => {
+    function move(e) {
+      const p = press.current;
+      if (!p) return;
+      if (!p.dragging) {
+        if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < 6) return;
+        p.dragging = true;
+      }
+      e.preventDefault();
+      setGhost({ name: p.name, x: e.clientX, y: e.clientY });
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      setOver(Boolean(el && el.closest(".dropbox")));
+    }
+    function up(e) {
+      const p = press.current;
+      press.current = null;
+      setGhost(null);
+      setOver(false);
+      if (!p) return;
+      if (!p.dragging) return onGive(p.id, share); // a tap
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      if (el && el.closest(".dropbox")) onGive(p.id, share);
+    }
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, [onGive, share]);
 
   return (
-    <div className="payform">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (cents) onAdd(cents, note.trim());
+    <section className="roster-block admin-block">
+      <h3>Mark who has paid</h3>
+
+      <label className="give-label" htmlFor="per-head">
+        Amount per person
+      </label>
+      <input
+        id="per-head"
+        className="give-amount"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitShare}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
         }}
-      >
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="Amount"
-          inputMode="decimal"
-          aria-label="Amount"
-        />
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Note (optional)"
-          aria-label="Note"
-        />
-        <button type="submit" disabled={!cents || busy}>
-          Add
-        </button>
-      </form>
-      {entries.length > 0 && (
-        <div className="payform-list">
-          {entries.map((p) => (
-            <span key={p.id} className="payform-chip">
-              {dollars(p.amountCents)}
-              {p.note ? ` · ${p.note}` : ""} · {p.paidOn}
-              <button onClick={() => onRemove(p.id)} aria-label="Remove this payment" disabled={busy}>
+        placeholder="e.g. 100"
+        inputMode="decimal"
+      />
+
+      <label className="give-label">Contributed</label>
+      <div className={`dropbox ${over ? "over" : ""} ${!share ? "locked" : ""}`}>
+        {!share ? (
+          <span className="dropbox-hint">Set an amount per person first</span>
+        ) : inBox.length === 0 ? (
+          <span className="dropbox-hint">Drag a name here, or tap one below</span>
+        ) : (
+          inBox.map((id) => (
+            <span key={id} className="namechip in-box">
+              {nameOf(id)}
+              <button
+                onClick={() => onUngive(id)}
+                aria-label={`Remove ${nameOf(id)}`}
+                disabled={busy}
+              >
                 ×
               </button>
             </span>
-          ))}
-        </div>
+          ))
+        )}
+      </div>
+
+      <label className="give-label">Still to pay</label>
+      <div className="namechips">
+        {waiting.length === 0 ? (
+          <span className="roster-empty">Everyone has paid.</span>
+        ) : (
+          waiting.map((m) => (
+            <button
+              key={m.id}
+              className={`namechip draggable ${!share ? "muted" : ""}`}
+              onPointerDown={(e) => onPointerDown(e, m)}
+              disabled={!share || busy}
+            >
+              {m.name}
+            </button>
+          ))
+        )}
+      </div>
+
+      {ghost && (
+        <span className="drag-ghost" style={{ left: ghost.x, top: ghost.y }}>
+          {ghost.name}
+        </span>
       )}
-    </div>
+    </section>
   );
 }
 
-function AdminTools({ picked, members, busy, onNewCollection, onToggleClosed, onAddMember, onRenameMember }) {
+function AdminTools({ picked, busy, onNavigate, onNewCollection, onToggleClosed }) {
   const [title, setTitle] = useState("");
   const [target, setTarget] = useState("");
   const [per, setPer] = useState("");
-  const [newName, setNewName] = useState("");
-  const [editId, setEditId] = useState(null);
-  const [editName, setEditName] = useState("");
   const [pass, setPass] = useState("");
   const [passState, setPassState] = useState(null); // null | "saving" | "saved" | error text
 
@@ -452,64 +512,13 @@ function AdminTools({ picked, members, busy, onNewCollection, onToggleClosed, on
         </button>
       )}
 
-      <div className="admin-sub">Squad</div>
-      <form
-        className="admin-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!newName.trim()) return;
-          onAddMember(newName.trim());
-          setNewName("");
-        }}
-      >
-        <div className="admin-row">
-          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Add a squad member" aria-label="New member name" />
-          <button type="submit" disabled={!newName.trim() || busy}>
-            Add
-          </button>
-        </div>
-      </form>
+      {/* The squad lives on its own page. Names have nothing to do with money,
+          and every row of this one that is not about money is a row an
+          organizer has to read past to get to the thing they came for. */}
+      <button className="admin-ghost" onClick={() => onNavigate("/squad")}>
+        Edit squad names →
+      </button>
 
-      <div className="namechips">
-        {members.map((m) =>
-          editId === m.id ? (
-            <form
-              key={m.id}
-              className="rename"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (editName.trim()) onRenameMember(m.id, editName.trim());
-                setEditId(null);
-              }}
-            >
-              <input
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                aria-label={`Rename ${m.name}`}
-                autoFocus
-              />
-              <button type="submit" disabled={busy}>
-                Save
-              </button>
-            </form>
-          ) : (
-            <button
-              key={m.id}
-              className="namechip editable"
-              onClick={() => {
-                setEditId(m.id);
-                setEditName(m.name);
-              }}
-            >
-              {m.name} <span className="pencil">✎</span>
-            </button>
-          ),
-        )}
-      </div>
-
-      {/* So the passcode can be changed from here rather than from the SQL
-          editor — the seeding script exists for setting it the first time, not
-          for every time somebody leaves the group. */}
       <div className="admin-sub">Passcode</div>
       <form
         className="admin-form"

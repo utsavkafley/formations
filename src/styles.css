@@ -2467,3 +2467,127 @@ h3 {
     font-weight: 700;
     color: var(--teal-ink);
 }
+
+/* ---- Marking who has paid ---- */
+.give-label {
+    display: block;
+    margin: 4px 0 6px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+}
+.give-amount {
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    font: inherit;
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* The box names get dragged into. Dashed because it is a place where
+   something goes, not a thing in itself, and it keeps its height when empty so
+   the page does not jump as the first name lands in it. */
+.dropbox {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 8px;
+    min-height: 76px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1.5px dashed var(--teal-edge);
+    border-radius: var(--r-md);
+    background: var(--panel-2);
+}
+.dropbox.over {
+    border-color: var(--teal);
+    background: var(--teal-tint);
+}
+.dropbox.locked {
+    border-color: var(--line);
+    background: var(--panel);
+}
+.dropbox-hint {
+    align-self: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.namechip.in-box {
+    gap: 6px;
+    padding: 7px 7px 7px 12px;
+    background: var(--teal-tint);
+    border-color: var(--teal-edge);
+    color: var(--teal-ink);
+}
+.namechip.in-box button {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(18, 34, 32, 0.1);
+    color: inherit;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* touch-action tells the browser this gesture is ours, so a drag that starts
+   on a chip does not scroll the page out from under it. */
+.namechip.draggable {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+.namechip.draggable:active {
+    background: var(--teal-tint);
+    border-color: var(--teal-edge);
+}
+.namechip.draggable.muted {
+    color: var(--muted);
+    cursor: default;
+}
+
+/* Follows the finger. Offset up and left of the touch point so the name is not
+   under the thumb that is moving it. */
+.drag-ghost {
+    position: fixed;
+    z-index: 60;
+    transform: translate(-50%, -160%);
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--teal);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+}
+
+/* A part payment, where a share is set and they are under it. */
+.ledger-row.part .ledger-amount {
+    color: var(--orange-ink);
+}
+.ledger-amount em {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.admin-flag.as-text {
+    cursor: default;
+}
+.squad-foot {
+    margin-top: 14px;
+}

@@ -2062,18 +2062,29 @@ h3 {
     justify-content: flex-end;
     margin-bottom: -6px;
 }
+/* Padded out to a 44px target and pulled back by the same amount, so the mark
+   still sits in the corner while the thumb gets something to hit. With the
+   word gone the icon alone was a 33x28 target, which is under the size a
+   finger reliably lands on. */
 .top-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    margin: -8px -10px -8px 0;
+    padding: 8px 10px;
     border: none;
     background: none;
-    padding: 4px 2px;
     font: inherit;
-    font-size: 14px;
-    font-weight: 600;
     color: var(--muted);
     cursor: pointer;
 }
 .top-link:hover {
     color: var(--teal-ink);
+}
+.cash-mark {
+    flex: none;
 }
 
 .money-head {

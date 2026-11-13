@@ -14,7 +14,7 @@ import { getDeviceId, getMe, setMe } from "./device.js";
 import { CORE_SQUAD, SIDE_LADDER } from "./squad.js";
 import { DEFAULT_KITS } from "./kits.js";
 import Crest from "./Crest.jsx";
-import { Shirt, WeatherMark } from "./Glyphs.jsx";
+import { CashMark, Shirt, WeatherMark } from "./Glyphs.jsx";
 import { fetchKickoffWeather, matchdayBlurb } from "./weather.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
@@ -324,8 +324,13 @@ export default function Poll({ onNavigate }) {
         )}
 
         <div className="poll-top">
-          <button className="top-link" onClick={() => onNavigate("/money")}>
-            Contributions
+          <button
+            className="top-link"
+            onClick={() => onNavigate("/money")}
+            aria-label="Contributions"
+            title="Contributions"
+          >
+            <CashMark size={20} />
           </button>
         </div>
 

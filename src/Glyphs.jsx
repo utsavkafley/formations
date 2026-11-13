@@ -39,6 +39,36 @@ export function Shirt({ kit = "empty", color }) {
   );
 }
 
+// A banknote, for the way through to the money. It stands alone up there with
+// no label beside it, so it carries a dollar sign rather than the plain disc a
+// note is usually drawn with: a rounded rectangle with a circle in the middle
+// reads as a camera about as readily as it reads as cash, and with no word
+// next to it there is nothing to settle the argument. Stroked and inheriting
+// its colour, so it sits at the weight of the quiet corner it lives in.
+export function CashMark({ size = 20 }) {
+  return (
+    <svg
+      className="cash-mark"
+      viewBox="0 0 22 15"
+      width={size * (22 / 15)}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <rect x="1" y="1" width="20" height="13" rx="2.6" />
+      <path d="M11 3.5v8" strokeWidth="1.3" />
+      <path
+        d="M12.9 5.7c0-.8-.85-1.4-1.9-1.4s-1.9.6-1.9 1.4.85 1.2 1.9 1.4 1.9.6 1.9 1.4-.85 1.4-1.9 1.4-1.9-.6-1.9-1.4"
+        strokeWidth="1.3"
+      />
+    </svg>
+  );
+}
+
 // Forecast marks, keyed to the buckets in weather.js.
 export function WeatherMark({ kind, size = 15 }) {
   const common = {

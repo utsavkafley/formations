@@ -143,10 +143,12 @@ export default function Money({ onNavigate }) {
               Organizer
             </button>
           ) : (
-            /* The way in. Deliberately almost nothing: the people who need it
-               know it is here, and nobody else is invited to wonder. */
-            <button className="admin-dot" onClick={() => setGate(true)} aria-label="Organizer sign in">
-              ·
+            /* It said "·" to begin with, on the theory that the people who
+               need it know where it is. They did; everyone else had no way to
+               tell it apart from punctuation, including the organizers who had
+               been told and still had to hunt. It says what it is now. */
+            <button className="admin-link" onClick={() => setGate(true)}>
+              Admin
             </button>
           )}
         </header>

@@ -2114,22 +2114,25 @@ h3 {
     cursor: pointer;
 }
 
-/* The sign-in. A dot, and nothing else: whoever needs it has been told where
-   it is, and nobody else should be invited to wonder what it does. */
-.admin-dot {
+/* The sign-in. Quiet — it is for two or three people out of thirty-six — but a
+   word rather than a mark, and padded to something a thumb can land on. */
+.admin-link {
     flex: none;
-    width: 28px;
-    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    margin: -8px -6px -8px 0;
+    padding: 8px 6px;
     border: none;
-    border-radius: 50%;
     background: none;
-    color: var(--line);
-    font-size: 20px;
-    line-height: 1;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--muted);
     cursor: pointer;
 }
-.admin-dot:hover {
-    color: var(--muted);
+.admin-link:hover {
+    color: var(--teal-ink);
 }
 .admin-flag {
     flex: none;

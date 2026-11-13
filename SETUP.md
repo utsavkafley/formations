@@ -34,11 +34,27 @@ for, the total it needs, the share per head), a meter, and every squad member
 with what they have paid. Everyone can read it — it is linked from the poll,
 top right.
 
-Changing anything needs the **organizer passcode**. The way in is the faint dot
-in the top-right corner of `/money`. **Nobody has set a passcode yet: the first
-person to open that dialog sets it**, so do that yourself the moment this is
-deployed, before you share the link. After that the dialog just asks for it.
-A browser stays signed in for 30 days; tapping **Organizer** signs it out.
+Changing anything needs the **organizer passcode**. The way in is the faint
+banknote in the top-right corner of the poll, then the dot in the corner of
+`/money`. A browser stays signed in for 30 days; tapping **Organizer** signs it
+out.
+
+**Set the passcode once, in Supabase.** This repository is public, so the
+passcode is not in it and never should be — pick one and run:
+
+```bash
+node scripts/passcode.mjs "the passcode you want"
+```
+
+That prints a single `insert` holding a salted PBKDF2 hash. Paste it into the
+Supabase SQL editor. The hash is not a secret (the app reads that table with
+the anon key); the passcode is, and it stays on your machine. Until this is
+run, the sign-in dialog says so rather than offering to set one — an earlier
+version let the first person through claim it, which made the lock
+first-come-first-served.
+
+After that, **Passcode** at the bottom of the organizer tools changes it
+without going back to SQL.
 
 An organizer can:
 

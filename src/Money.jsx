@@ -176,7 +176,9 @@ export default function Money({ onNavigate }) {
           <section className="roster-block">
             <h3>Nothing yet</h3>
             <div className="roster-empty">
-              No collection has been started. {admin ? "Start one below." : "An organizer will add one."}
+              {admin
+                ? "Admin — organize a contribution below: what it's for, the total, and the share per head."
+                : "Nothing is being collected right now. An organizer will put one up."}
             </div>
           </section>
         ) : (
@@ -409,6 +411,8 @@ function AdminTools({ picked, members, busy, onNewCollection, onToggleClosed, on
   const [newName, setNewName] = useState("");
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [pass, setPass] = useState("");
+  const [passState, setPassState] = useState(null); // null | "saving" | "saved" | error text
 
   return (
     <section className="roster-block admin-block">
@@ -500,26 +504,71 @@ function AdminTools({ picked, members, busy, onNewCollection, onToggleClosed, on
           ),
         )}
       </div>
+
+      {/* So the passcode can be changed from here rather than from the SQL
+          editor — the seeding script exists for setting it the first time, not
+          for every time somebody leaves the group. */}
+      <div className="admin-sub">Passcode</div>
+      <form
+        className="admin-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (pass.length < 6) return setPassState("Use at least six characters");
+          setPassState("saving");
+          try {
+            await setPasscode(pass);
+            setPass("");
+            setPassState("saved");
+          } catch (err) {
+            setPassState(err.message || "Couldn't save that");
+          }
+        }}
+      >
+        <div className="admin-row">
+          <input
+            type="password"
+            value={pass}
+            onChange={(e) => {
+              setPass(e.target.value);
+              setPassState(null);
+            }}
+            placeholder="New passcode"
+            aria-label="New passcode"
+            autoComplete="new-password"
+          />
+          <button type="submit" disabled={!pass || busy || passState === "saving"}>
+            {passState === "saving" ? "…" : "Change"}
+          </button>
+        </div>
+        {passState && passState !== "saving" && (
+          <div className={passState === "saved" ? "pass-ok" : "gate-err"}>
+            {passState === "saved" ? "Changed. Everyone else will need the new one." : passState}
+          </div>
+        )}
+      </form>
     </section>
   );
 }
 
-// The passcode dialog. Two modes, and which one you get is not a choice: if no
-// passcode has been set on this database yet, the first person here sets it.
-// That beats shipping a default everyone knows, and it is the organizer's job
-// to do it on the day this goes up.
+// The passcode dialog. One job: take a passcode and check it.
+//
+// It used to offer to SET the passcode when none was found, which made the
+// lock first-come-first-served — whoever opened this before the organizers did
+// became the organizer. The passcode is seeded straight into Supabase now
+// (scripts/passcode.mjs prints the statement), so a missing one is a setup
+// step that has not been run, and saying so is better than handing the keys to
+// whoever happened to tap the dot.
 function AdminGate({ onClose, onIn }) {
-  const [fresh, setFresh] = useState(null); // null = still checking
+  const [ready, setReady] = useState(null); // null = checking, false = none set
   const [code, setCode] = useState("");
-  const [again, setAgain] = useState("");
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
     hasPasscode()
-      .then((has) => alive && setFresh(!has))
-      .catch(() => alive && setFresh(false));
+      .then((has) => alive && setReady(has))
+      .catch(() => alive && setReady(false));
     return () => {
       alive = false;
     };
@@ -536,16 +585,8 @@ function AdminGate({ onClose, onIn }) {
     setBusy(true);
     setErr(null);
     try {
-      if (fresh) {
-        if (code.length < 6) throw new Error("Use at least six characters");
-        if (code !== again) throw new Error("The two don't match");
-        await setPasscode(code);
-        onIn();
-      } else if (await checkPasscode(code)) {
-        onIn();
-      } else {
-        setErr("That's not it");
-      }
+      if (await checkPasscode(code)) onIn();
+      else setErr("That's not it");
     } catch (e2) {
       setErr(e2.message || "Couldn't check that");
     } finally {
@@ -562,37 +603,29 @@ function AdminGate({ onClose, onIn }) {
         aria-label="Organizer sign in"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="sheet-title">{fresh ? "Set the organizer passcode" : "Organizer"}</h2>
+        <h2 className="sheet-title">Organizer</h2>
         <div className="sheet-sub">
-          {fresh
-            ? "Nobody has set one yet. Whatever you pick here is what the other organizers will use."
+          {ready === false
+            ? "No passcode has been set on this database yet. Run scripts/passcode.mjs and paste what it prints into Supabase."
             : "For whoever keeps the squad and the money straight."}
         </div>
-        <form className="gate-form" onSubmit={submit}>
-          <input
-            type="password"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Passcode"
-            aria-label="Passcode"
-            autoFocus
-            autoComplete={fresh ? "new-password" : "current-password"}
-          />
-          {fresh && (
+        {ready !== false && (
+          <form className="gate-form" onSubmit={submit}>
             <input
               type="password"
-              value={again}
-              onChange={(e) => setAgain(e.target.value)}
-              placeholder="Again"
-              aria-label="Passcode again"
-              autoComplete="new-password"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Passcode"
+              aria-label="Passcode"
+              autoFocus
+              autoComplete="current-password"
             />
-          )}
-          {err && <div className="gate-err">{err}</div>}
-          <button className="sheet-done" type="submit" disabled={busy || fresh === null || !code}>
-            {fresh ? "Set it" : "Sign in"}
-          </button>
-        </form>
+            {err && <div className="gate-err">{err}</div>}
+            <button className="sheet-done" type="submit" disabled={busy || ready === null || !code}>
+              Sign in
+            </button>
+          </form>
+        )}
         <button className="sheet-skip" onClick={onClose}>
           Not now
         </button>

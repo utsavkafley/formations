@@ -2459,3 +2459,8 @@ h3 {
     font-weight: 700;
     color: var(--orange-ink);
 }
+.pass-ok {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--teal-ink);
+}

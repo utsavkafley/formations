@@ -16,14 +16,21 @@ import { DEFAULT_KITS } from "./kits.js";
 import Crest from "./Crest.jsx";
 import { CashMark, Shirt, WeatherMark } from "./Glyphs.jsx";
 import { fetchKickoffWeather, matchdayBlurb } from "./weather.js";
+import { recentCounts } from "./rating.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
-// Peer ratings are PAUSED. While this is false the post-RSVP prompt never
-// opens, so nobody gets asked to rate a teammate. Nothing else is unwired —
-// pickFeedbackTarget, FeedbackSheet and store.addFeedback all stay, as do the
-// ratings already collected — so flipping it back to true resumes the asks
-// exactly as they were.
-const ASK_FOR_RATINGS = false;
+// Peer ratings are being collected again. What changed along with the flag is
+// WHO gets asked about: only people from the asker's own last game, and among
+// those, whoever the squad has said least about lately. The form column on the
+// build screen reads a one-month window, so a rating from August does nothing
+// for anybody — the asks have to keep coming for that column to mean anything,
+// and they have to spread out or the same four names collect them all.
+const ASK_FOR_RATINGS = true;
+
+// How long after a game it is still worth asking about. The group plays Sunday
+// and Thursday, so anyone who turns up regularly has a game three or four days
+// back; ten days covers a missed week without reaching into the month before.
+const STALE_GAME_DAYS = 10;
 
 export default function Poll({ onNavigate }) {
   const game = useMemo(() => getNextGame(), []);
@@ -38,7 +45,6 @@ export default function Poll({ onNavigate }) {
   const [showAll, setShowAll] = useState(false);
   const autoOpened = useRef(false);
   const recovered = useRef(false);
-  const feedbackCount = useRef(0); // ratings submitted this session (chain caps at 3)
 
   const eff = applyMeta(game, data.meta);
   const pendingKey = `yolo.pendingVote.${game.date}`;
@@ -229,30 +235,48 @@ export default function Poll({ onNavigate }) {
   // Pick a co-attendee of a past game the rater played in, whom they haven't
   // rated for that game yet. Biases toward the least-rated player to spread
   // coverage. Returns null when there's nothing sensible to ask.
+  // Who to ask about. Two rules, and they pull in different directions on
+  // purpose.
+  //
+  // Only the asker's OWN last game, and only if it was recent. It used to walk
+  // back through six games until it found somebody unrated, which meant being
+  // asked in November what you made of a player in September — a question
+  // nobody can answer honestly, and those answers are what the form column is
+  // built from.
+  //
+  // Then, among that game's players, whoever the squad has said least about in
+  // the last month, falling back to least overall. Sorting by lifetime count
+  // alone would keep feeding the same long-standing gaps while this month's
+  // record stayed empty for everyone, and it is this month's record the form
+  // column reads.
   async function pickFeedbackTarget() {
     const games = await store.fetchAttendedGames(me.id, game.date);
-    if (!games.length) return null;
+    const last = games[0];
+    if (!last) return null;
+    const daysAgo = (Date.parse(`${game.date}T00:00:00`) - Date.parse(`${last}T00:00:00`)) / 864e5;
+    if (!(daysAgo <= STALE_GAME_DAYS)) return null;
+
     const all = await store.fetchAllFeedback();
-    const counts = {};
+    const recent = recentCounts(all);
+    const lifetime = {};
     const ratedByMe = new Set();
     for (const r of all) {
-      counts[r.subject_id] = (counts[r.subject_id] || 0) + 1;
+      lifetime[r.subject_id] = (lifetime[r.subject_id] || 0) + 1;
       if (r.rater_id === me.id) ratedByMe.add(`${r.subject_id}|${r.game_date}`);
     }
-    for (const g of games) {
-      const attendees = await store.fetchAttendees(g);
-      const eligible = attendees.filter(
-        (a) => a.memberId !== me.id && !ratedByMe.has(`${a.memberId}|${g}`),
-      );
-      if (eligible.length) {
-        eligible.sort(
-          (a, b) => (counts[a.memberId] || 0) - (counts[b.memberId] || 0) || Math.random() - 0.5,
-        );
-        const pick = eligible[0];
-        return { subjectId: pick.memberId, subjectName: pick.memberName, gameDate: g };
-      }
-    }
-    return null;
+
+    const eligible = (await store.fetchAttendees(last)).filter(
+      (a) => a.memberId !== me.id && !ratedByMe.has(`${a.memberId}|${last}`),
+    );
+    if (!eligible.length) return null;
+    eligible.sort(
+      (a, b) =>
+        (recent.get(a.memberId) || 0) - (recent.get(b.memberId) || 0) ||
+        (lifetime[a.memberId] || 0) - (lifetime[b.memberId] || 0) ||
+        Math.random() - 0.5,
+    );
+    const pick = eligible[0];
+    return { subjectId: pick.memberId, subjectName: pick.memberName, gameDate: last };
   }
 
   // Runs whenever the RSVP sheet closes (Done, ✕, Escape, or backdrop). If the
@@ -265,7 +289,6 @@ export default function Poll({ onNavigate }) {
         const target = await pickFeedbackTarget();
         if (target) {
           localStorage.setItem(askedKey, "1");
-          feedbackCount.current = 0;
           setFeedbackTarget(target);
           setSheet("feedback");
           return;
@@ -277,8 +300,14 @@ export default function Poll({ onNavigate }) {
     setSheet(null);
   }
 
-  // Save the rating, then chain to the next eligible teammate — up to 3 per
-  // session so the ask stays light. Any failure just ends the chain.
+  // Save the rating and close. One player per visit, not a chain of three:
+  // somebody who has just said they are coming is being asked a favour, and
+  // the third screen of it is where they start tapping whatever ends it —
+  // which is worse than no rating at all, because it is a wrong one.
+  //
+  // One per person per poll is still plenty of volume across a squad this
+  // size, and it is pickFeedbackTarget's job to point those asks at whoever
+  // the month knows least about.
   async function submitFeedback({ performance, strengths }) {
     await store.addFeedback({
       subjectId: feedbackTarget.subjectId,
@@ -287,18 +316,6 @@ export default function Poll({ onNavigate }) {
       performance,
       strengths,
     });
-    feedbackCount.current += 1;
-    if (feedbackCount.current < 3) {
-      try {
-        const next = await pickFeedbackTarget();
-        if (next) {
-          setFeedbackTarget(next);
-          return;
-        }
-      } catch {
-        /* end the chain */
-      }
-    }
     setSheet(null);
   }
 
@@ -516,7 +533,6 @@ export default function Poll({ onNavigate }) {
         <FeedbackSheet
           key={`${feedbackTarget.subjectId}|${feedbackTarget.gameDate}`}
           subjectName={feedbackTarget.subjectName}
-          chained={feedbackCount.current > 0}
           onClose={() => setSheet(null)}
           onSubmit={submitFeedback}
         />
@@ -572,7 +588,7 @@ const PERF = [
   { key: "great", label: "Great" },
 ];
 
-function FeedbackSheet({ subjectName, chained, onClose, onSubmit }) {
+function FeedbackSheet({ subjectName, onClose, onSubmit }) {
   const [perf, setPerf] = useState(null);
   const [picked, setPicked] = useState([]);
   const toggle = (k) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
@@ -580,11 +596,7 @@ function FeedbackSheet({ subjectName, chained, onClose, onSubmit }) {
   return (
     <Sheet
       title="Quick rating"
-      subtitle={
-        chained
-          ? `Saved ✓ — one more: how did ${subjectName} play?`
-          : `Help balance teams — how did ${subjectName} play?`
-      }
+      subtitle={`Help balance teams — how did ${subjectName} play?`}
       onClose={onClose}
     >
       <label className="field-label">{subjectName}'s performance</label>

@@ -12,6 +12,7 @@
     --teal-ink: #1d524f; /* small text on white or on a tint */
     --teal-tint: #e9f1f0; /* soft fill */
     --teal-soft: #6ea8a3; /* a mid teal that reads on a tint: the sides card's goal line */
+    --form: #16a34a; /* recent form chevrons — 3.3:1 on white */
     --kit-line: #7aa29d; /* an empty place on the teamsheet — the palest teal that still holds its own at 30px */
     --teal-edge: #bcd6d3; /* border around a tinted fill */
     --orange: #b85c1a; /* accent · OUT · notices */
@@ -2590,4 +2591,91 @@ h3 {
 }
 .squad-foot {
     margin-top: 14px;
+}
+
+/* The squad's own verdict on a player, as a short bar in the squad list. It is
+   a bar and not a number because nobody needs two decimal places to decide who
+   to put on which side — they need to see at a glance that this player is
+   rated above that one. */
+.rate-chip {
+    flex: none;
+    position: relative;
+    width: 50px;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--line-soft);
+    box-shadow: inset 0 0 0 1px var(--line);
+    overflow: hidden;
+}
+/* A tick at the group's own average, so above and below it read without a
+   number next to every name. */
+.rate-chip::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 1px;
+    bottom: 1px;
+    width: 1px;
+    background: var(--teal-edge);
+}
+.rate-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+    background: var(--teal);
+}
+/* Nobody has rated them. An empty track, not a half-full faint one: the faint
+   mid-width bar the first version drew read as "poorly rated" when it meant
+   "we don't know", which is the opposite of true and sat in public next to
+   somebody's name. */
+.rate-chip.none {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--line);
+}
+.rate-chip.none::after {
+    display: none;
+}
+
+.col-rated {
+    width: 50px;
+    text-align: center;
+}
+.squad-legend {
+    margin: 2px 0 8px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--muted);
+}
+
+/* How even the two sides came out. Teal when it is fine, orange when it wants
+   the organizer's attention — the same rule the rest of the app follows. */
+.evenness {
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border: 1px solid var(--teal-edge);
+    border-radius: var(--r-sm);
+    background: var(--teal-tint);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--teal-ink);
+}
+.evenness.near {
+    border-color: var(--line);
+    background: var(--panel-2);
+    color: var(--muted);
+}
+.evenness.off {
+    border-color: var(--orange-edge);
+    background: var(--orange-tint);
+    color: var(--orange-ink);
+}
+
+/* Recent form beside a name. One box whatever the level, so a column of chips
+   keeps its widths whether somebody has one chevron, two, or none. The green
+   is the brightest that still clears 3:1 against white at this stroke — the
+   punchier greens read as a smudge once they are 13px of 2px line. */
+.form-mark {
+    flex: none;
+    margin-left: 1px;
+    color: var(--form);
 }

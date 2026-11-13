@@ -69,6 +69,45 @@ export function CashMark({ size = 20 }) {
   );
 }
 
+// Recent form, in public, beside somebody's name. One chevron for good form
+// over the past month, two stacked for great. Nothing at all otherwise —
+// ordinary form and not-enough-ratings both render as absence, deliberately:
+// this sits where the whole group reads it, and any visible mark for "ok"
+// would be a public demerit nobody asked to be given.
+//
+// Both levels are the same green. Two colours would have invited the question
+// of what the second one means, when the only difference is how much.
+export function FormChevrons({ level }) {
+  if (!level) return null;
+  return (
+    <svg
+      className="form-mark"
+      viewBox="0 0 14 14"
+      width="13"
+      height="13"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      role="img"
+      aria-label={level === 2 ? "Great form this month" : "Good form this month"}
+    >
+      <title>
+        {level === 2 ? "Rated great by the squad this month" : "Well rated by the squad this month"}
+      </title>
+      {level === 2 ? (
+        <>
+          <path d="M3 11.4 7 7.4l4 4" />
+          <path d="M3 6.8 7 2.8l4 4" />
+        </>
+      ) : (
+        <path d="M3 9.1 7 5.1l4 4" />
+      )}
+    </svg>
+  );
+}
+
 // Forecast marks, keyed to the buckets in weather.js.
 export function WeatherMark({ kind, size = 15 }) {
   const common = {

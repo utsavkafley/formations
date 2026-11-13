@@ -4,7 +4,9 @@ import store from "./store.js";
 import { getNextGame } from "./schedule.js";
 import { CORE_SQUAD } from "./squad.js";
 import { TEAM_COLORS, DEFAULT_KITS } from "./kits.js";
+import { ratingIndex, formLevels } from "./rating.js";
 import Crest from "./Crest.jsx";
+import { FormChevrons } from "./Glyphs.jsx";
 
 const SQUAD_KEY = "formations.squad.v1";
 const FORMS_KEY = "formations.forms.v1"; // { [id]: "great" } — Good is the baseline
@@ -13,9 +15,35 @@ const SNAP = 0.03; // alignment snap threshold (fraction of pitch)
 let guestId = 1;
 
 const AREAS = ["DEF", "MID", "ATT"];
-// Skill weight used by the team balancer. Everyone is "Good" by default; the
-// organizer flips standout players to "Great" on the day.
-const FORM_WEIGHT = { good: 1, great: 1.8 };
+// How much a ★ is worth on top of a player's standing. The ★ used to be the
+// only signal the balancer had; now it means "on form today" over a baseline
+// the squad's own ratings already set, so it nudges rather than decides.
+const ON_FORM = 1.3;
+
+// How the split came out, in words. An odd number of players is the thing this
+// has to get right: with ten against nine the extra body is worth about five
+// per cent of the pitch on its own, so a gap that size is not the balancer
+// failing, it is arithmetic. Calling it "lopsided" would send the organizer
+// pressing the button over and over for a split that does not exist.
+function Evenness({ gap, a, b }) {
+  const pct = gap * 100;
+  const uneven = a !== b;
+  let tone = "even";
+  let text;
+  if (uneven) {
+    tone = "near";
+    text = `${a} v ${b} — as even as an odd number allows, ${pct.toFixed(0)}% apart`;
+  } else if (pct <= 2) {
+    text = `Even — sides within ${pct.toFixed(1)}%`;
+  } else if (pct <= 5) {
+    tone = "near";
+    text = `Near enough — ${pct.toFixed(0)}% apart`;
+  } else {
+    tone = "off";
+    text = `Lopsided — ${pct.toFixed(0)}% apart. Press Balance again for another split.`;
+  }
+  return <div className={`evenness ${tone}`}>{text}</div>;
+}
 
 function contrastText(hex) {
   const h = hex.replace("#", "");
@@ -80,12 +108,20 @@ function shuffle(arr) {
 }
 
 // Split the coming players into two balanced teams. Primary goal: near-equal
-// total skill (Great weighted heavier). Secondary: spread DEF/MID/ATT evenly.
-// Ties are shuffled so re-running gives a different fair split.
-function balance(coming, getForm, getArea) {
-  const ordered = shuffle(coming).sort(
-    (a, b) => FORM_WEIGHT[getForm(b.id)] - FORM_WEIGHT[getForm(a.id)],
-  );
+// total skill. Secondary: spread DEF/MID/ATT evenly.
+//
+// `jitter` is what keeps the button honest. When the only weights were 1.0 and
+// 1.8 almost everybody tied, so the shuffle above the sort genuinely re-rolled
+// the split and pressing Balance again gave you a different fair side. Peer
+// ratings are distinct floats, which made the sort total and the whole thing
+// deterministic — press it twice and you got the same teams, which is useless
+// at 9:40 when somebody says "that's not fair, do it again". A small random
+// nudge on the sort key lets players of similar standing swap places while
+// still keeping the strong away from the weak.
+function balance(coming, getWeight, getArea, jitter = 0) {
+  const noise = () => (jitter ? (Math.random() - 0.5) * jitter : 0);
+  const key = new Map(coming.map((p) => [p.id, getWeight(p.id) + noise()]));
+  const ordered = shuffle(coming).sort((a, b) => key.get(b.id) - key.get(a.id));
   const team = { A: [], B: [] };
   const weight = { A: 0, B: 0 };
   const areaCount = { A: { DEF: 0, MID: 0, ATT: 0 }, B: { DEF: 0, MID: 0, ATT: 0 } };
@@ -101,16 +137,49 @@ function balance(coming, getForm, getArea) {
       pick = team.A.length <= team.B.length ? "A" : "B";
     }
     team[pick].push(p);
-    weight[pick] += FORM_WEIGHT[getForm(p.id)];
+    weight[pick] += getWeight(p.id);
     areaCount[pick][area] += 1;
   }
   return team;
 }
 
+// How far apart two sides are, as a share of the whole. The organizer never
+// sees the raw totals — a gap of 0.02 means nothing to anyone — but the
+// fraction is what decides whether a split is worth offering.
+function splitGap(split, getWeight) {
+  const tot = (side) => side.reduce((n, p) => n + getWeight(p.id), 0);
+  const a = tot(split.A);
+  const b = tot(split.B);
+  const all = a + b;
+  return all ? Math.abs(a - b) / all : 0;
+}
+
+// Several near-equal splits rather than one, so pressing Balance again has
+// something to show. Candidates within a shade of the best are kept and sorted
+// fairest-first; the caller walks the list on repeated presses.
+function balanceOptions(coming, getWeight, getArea, tries = 32) {
+  const seen = new Map();
+  for (let i = 0; i < tries; i++) {
+    const split = balance(coming, getWeight, getArea, i === 0 ? 0 : 0.09);
+    const ids = split.A.map((p) => p.id)
+      .sort()
+      .join(",");
+    if (seen.has(ids)) continue;
+    seen.set(ids, { split, gap: splitGap(split, getWeight) });
+  }
+  const options = [...seen.values()].sort((x, y) => x.gap - y.gap);
+  const best = options[0]?.gap ?? 0;
+  // Within one and a half points of the fairest, or a flat 1% when the fairest
+  // is already dead even — otherwise a perfect split would reject every
+  // alternative and we would be back to one answer.
+  const tol = Math.max(best * 1.5, 0.01);
+  return options.filter((o) => o.gap <= tol);
+}
+
 // Lay a team's players onto its half by usual area, spreading each line out.
 // Returns a map id -> {x, y}. A keeper is assigned when the side has >= 5,
 // preferring a less-standout defender so the best players stay outfield.
-function layoutTeam(teamPlayers, getArea, getForm) {
+function layoutTeam(teamPlayers, getArea, getWeight) {
   const lines = { DEF: [], MID: [], ATT: [] };
   teamPlayers.forEach((p) => lines[getArea(p.id)].push(p));
 
@@ -120,7 +189,7 @@ function layoutTeam(teamPlayers, getArea, getForm) {
     // Prefer a "Good" keeper over a "Great" one.
     let gkIdx = 0;
     pool.forEach((p, i) => {
-      if (FORM_WEIGHT[getForm(p.id)] < FORM_WEIGHT[getForm(pool[gkIdx].id)]) gkIdx = i;
+      if (getWeight(p.id) < getWeight(pool[gkIdx].id)) gkIdx = i;
     });
     gk = pool.splice(gkIdx, 1)[0];
   }
@@ -154,6 +223,8 @@ export default function Builder({ onNavigate }) {
   const [hover, setHover] = useState(null); // 'A' | 'B' | 'bench'
   const [ghost, setGhost] = useState(null); // floating drag preview { name, color, x, y }
   const pendingRef = useRef(null); // in-flight pointer drag data
+  const nextSplit = useRef(0); // which of the near-equal splits the next press shows
+  const [splitGapPct, setSplitGap] = useState(null);
   const [editId, setEditId] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [savedNote, setSavedNote] = useState(false);
@@ -239,6 +310,41 @@ export default function Builder({ onNavigate }) {
 
   const getForm = (id) => forms[id] || "good";
   const getArea = (id) => areas[id] || "MID";
+
+  // What the squad has said about each other over the season. Best-effort: if
+  // it can't be fetched the index is empty, every weight falls back to the
+  // baseline, and the balancer splits on areas and the ★ alone — which is
+  // exactly what it did before any of this existed.
+  const [ratings, setRatings] = useState(() => ratingIndex([]));
+  const [chevrons, setChevrons] = useState(() => new Map());
+  useEffect(() => {
+    let alive = true;
+    store
+      .fetchAllFeedback()
+      .then((rows) => {
+        if (!alive) return;
+        setRatings(ratingIndex(rows));
+        setChevrons(formLevels(rows));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // The scores bunch up: shrinking toward the mean leaves almost the whole
+  // squad between 0.8 and 1.6 out of 2, so a bar drawn against 0..2 moved
+  // about seven pixels across the entire group and every mid player looked
+  // identical. Drawn against half a point either side of the group's own
+  // average instead, the same differences fill the track.
+  const barFill = (score) => {
+    const lo = ratings.prior - 0.5;
+    const hi = ratings.prior + 0.5;
+    return Math.max(4, Math.min(100, ((score - lo) / (hi - lo)) * 100));
+  };
+
+  const getWeight = (id) =>
+    (ratings.index.get(id)?.weight ?? ratings.baseline) * (getForm(id) === "great" ? ON_FORM : 1);
 
   function toggleForm(id) {
     setForms((f) => ({ ...f, [id]: getForm(id) === "great" ? "good" : "great" }));
@@ -356,9 +462,17 @@ export default function Builder({ onNavigate }) {
   function balanceTeams() {
     setPlayers((prev) => {
       if (prev.length < 2) return prev;
-      const split = balance(prev, getForm, getArea);
-      const posA = layoutTeam(split.A, getArea, getForm);
-      const posB = layoutTeam(split.B, getArea, getForm);
+      const options = balanceOptions(prev, getWeight, getArea);
+      const pick = options[nextSplit.current % options.length];
+      nextSplit.current += 1;
+      const split = pick.split;
+      setSplitGap({
+        gap: pick.gap,
+        a: split.A.length,
+        b: split.B.length,
+      });
+      const posA = layoutTeam(split.A, getArea, getWeight);
+      const posB = layoutTeam(split.B, getArea, getWeight);
       const teamOf = {};
       const posOf = {};
       split.A.forEach((p) => ((teamOf[p.id] = "A"), (posOf[p.id] = posA[p.id])));
@@ -562,8 +676,14 @@ export default function Builder({ onNavigate }) {
             title={allComing ? "Clear all" : "Select all"}
           />
           <span className="col-name">Name</span>
+          <span className="col-rated">Rated</span>
           <span className="col-form">Form</span>
           <span className="col-pos">Position</span>
+        </div>
+        {/* The only non-hover explanation of either mark. `title` tooltips do
+            not fire on a phone, which is the device this is used on. */}
+        <div className="squad-legend">
+          Bar is what the squad rates them. ★ is on form today, and counts extra.
         </div>
 
         <div className={`squad-list ${hover === "bench" ? "drop-hover" : ""}`}>
@@ -573,6 +693,8 @@ export default function Builder({ onNavigate }) {
             const placed = player && player.team != null;
             const great = getForm(m.id) === "great";
             const area = getArea(m.id);
+            const rated = ratings.index.get(m.id);
+            const score = rated ? rated.score : ratings.prior;
             return (
               <div key={m.id} className={`squad-row ${coming ? "" : "out"}`}>
                 <input
@@ -607,9 +729,24 @@ export default function Builder({ onNavigate }) {
                   {placed && <span className="on-dot" />}
                   {m.name}
                 </span>
+                {/* What the squad's own ratings say, so the balancer is not
+                    working off numbers nobody can see. Faint when there is
+                    little behind it — two ratings and five are not the same
+                    claim, and the bar says so without a second column. */}
+                <span
+                  className={`rate-chip ${rated ? "" : "none"}`}
+                  title={
+                    rated
+                      ? `${rated.n} rating${rated.n === 1 ? "" : "s"} from the squad — average ${rated.raw.toFixed(1)} of 2`
+                      : "Not rated yet — the balancer treats them as average"
+                  }
+                >
+                  {rated && <span className="rate-fill" style={{ width: `${barFill(score)}%` }} />}
+                </span>
+                <FormChevrons level={chevrons.get(m.id)} />
                 <button
                   className={`form-toggle ${great ? "great" : ""}`}
-                  title={great ? "Great — click for Good" : "Good — click for Great"}
+                  title={great ? "On form today — click to clear" : "Mark as on form today"}
                   onClick={() => toggleForm(m.id)}
                 >
                   {great ? "★" : "☆"}
@@ -635,13 +772,15 @@ export default function Builder({ onNavigate }) {
           })}
         </div>
         <p className="hint">
-          Tick who's here, set each player's usual area and ★ for the standouts,
+          Tick who's here, set each player's usual area and ★ whoever is on form,
           then hit <b>Balance teams</b> for two fair sides — or drag people on
           manually (press &amp; hold on touch). Drop back here to bench.
         </p>
       </aside>
 
       <main className="main">
+        {splitGapPct && <Evenness {...splitGapPct} />}
+
         <div className="toolbar">
           {["A", "B"].map((team) => (
             <div className="team-control" key={team}>

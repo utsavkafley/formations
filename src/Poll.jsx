@@ -154,7 +154,25 @@ export default function Poll({ onNavigate }) {
     }
   }, [loading, connError, data.votes, pendingKey, saveVote]);
 
-  const roster = CORE_SQUAD;
+  // The squad lives in the database now, so an organizer can add somebody or
+  // fix a spelling without a deploy. It starts as the hardcoded list and is
+  // replaced once the real one arrives: the table was seeded from exactly that
+  // list, so on a normal load the swap changes nothing on screen, and when the
+  // database is unreachable the app still has a squad to show.
+  const [roster, setRoster] = useState(CORE_SQUAD);
+  useEffect(() => {
+    let alive = true;
+    store
+      .fetchMembers()
+      .then((ms) => {
+        const live = ms.filter((m) => m.active !== false);
+        if (alive && live.length) setRoster(live);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   const inList = roster.filter((m) => data.votes[m.id]?.status === "in");
   const outList = roster.filter((m) => data.votes[m.id]?.status === "out");
   const noResp = roster.filter((m) => !data.votes[m.id]);
@@ -304,6 +322,12 @@ export default function Poll({ onNavigate }) {
             Can’t reach the server — your RSVP won’t save yet. It’ll retry automatically.
           </div>
         )}
+
+        <div className="poll-top">
+          <button className="top-link" onClick={() => onNavigate("/money")}>
+            Contributions
+          </button>
+        </div>
 
         <header className="hero">
           {/* Four things, in the order you'd say them out loud: who and when,

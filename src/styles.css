@@ -2049,3 +2049,402 @@ h3 {
         border-color: transparent;
     }
 }
+
+/* ============================================================= *
+ * Contributions — what the group has put in                      *
+ * ============================================================= */
+
+/* The one way through to the money, on the poll. Muted on purpose: the poll
+   is for answering a question, and this is for the week somebody is chasing
+   the kitty. */
+.poll-top {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: -6px;
+}
+.top-link {
+    border: none;
+    background: none;
+    padding: 4px 2px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+}
+.top-link:hover {
+    color: var(--teal-ink);
+}
+
+.money-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.money-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.page-title.sm {
+    font-size: clamp(24px, 7vw, 32px);
+}
+.back-link {
+    flex: none;
+    border: none;
+    background: none;
+    padding: 4px 2px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+/* The sign-in. A dot, and nothing else: whoever needs it has been told where
+   it is, and nobody else should be invited to wonder what it does. */
+.admin-dot {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    color: var(--line);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.admin-dot:hover {
+    color: var(--muted);
+}
+.admin-flag {
+    flex: none;
+    padding: 5px 10px;
+    border: 1px solid var(--guest-edge);
+    border-radius: 999px;
+    background: var(--guest-tint);
+    color: var(--guest);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+/* ---- The collection ---- */
+.drive {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow);
+    padding: 16px 18px 18px;
+}
+.drive-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+.drive-kicker {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--teal);
+}
+.drive-title {
+    margin: 2px 0 0;
+    font-size: clamp(20px, 5.5vw, 26px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+}
+.drive-share {
+    flex: none;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--muted);
+}
+.drive-figures {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 12px;
+}
+.drive-raised {
+    font-size: clamp(34px, 10vw, 42px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--teal);
+}
+.drive-target {
+    font-size: 16px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+.drive-meter {
+    position: relative;
+    height: 10px;
+    margin-top: 12px;
+    border-radius: 999px;
+    background: var(--teal-tint);
+    overflow: hidden;
+}
+.drive-meter span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--teal);
+}
+.drive-note {
+    margin-top: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.drive-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.drive-tab {
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+}
+.drive-tab.on {
+    background: var(--teal-tint);
+    border-color: var(--teal-edge);
+    color: var(--teal-ink);
+}
+
+/* ---- Who has put in ---- */
+.ledger {
+    display: flex;
+    flex-direction: column;
+}
+.ledger-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 2px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 16px;
+    font-weight: 600;
+}
+.ledger-row:last-child {
+    border-bottom: none;
+}
+.ledger-row.editable {
+    cursor: pointer;
+}
+.ledger-row.editable:hover {
+    background: var(--panel-2);
+}
+.ledger-name {
+    min-width: 0;
+}
+/* Tabular, so the column of amounts lines up on the decimal and a short list
+   can be read down rather than across. */
+.ledger-amount {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+}
+.ledger-row.done .ledger-amount {
+    color: var(--teal);
+    font-weight: 800;
+}
+
+.payform {
+    padding: 10px 2px 14px;
+    border-bottom: 1px solid var(--line-soft);
+}
+.payform form {
+    display: flex;
+    gap: 8px;
+}
+.payform input {
+    min-width: 0;
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    font: inherit;
+    font-size: 15px;
+}
+.payform button {
+    flex: none;
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: var(--teal);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.payform button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+.payform-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+.payform-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 6px 5px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--panel-2);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+}
+.payform-chip button {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(18, 34, 32, 0.08);
+    color: inherit;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* ---- Organizer tools ---- */
+.admin-block {
+    border-color: var(--guest-edge);
+}
+.admin-block h3 {
+    color: var(--guest);
+}
+.admin-sub {
+    margin: 4px 0 10px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text);
+}
+.admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.admin-row {
+    display: flex;
+    gap: 8px;
+}
+.admin-form input {
+    min-width: 0;
+    flex: 1;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    font: inherit;
+    font-size: 15px;
+}
+.admin-form button {
+    flex: none;
+    padding: 11px 16px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: var(--teal);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+.admin-form button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+.admin-ghost {
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    background: var(--panel);
+    font: inherit;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+}
+.namechip.editable {
+    border: 1px solid var(--guest-edge);
+    background: var(--guest-tint);
+    color: var(--guest);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.namechip.editable .pencil {
+    opacity: 0.6;
+    font-size: 12px;
+}
+.rename {
+    display: flex;
+    gap: 6px;
+}
+.rename input {
+    width: 120px;
+    padding: 7px 10px;
+    border: 1px solid var(--guest-edge);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 15px;
+}
+.rename button {
+    padding: 7px 12px;
+    border: none;
+    border-radius: 999px;
+    background: var(--guest);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.gate .gate-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+}
+.gate input {
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    font: inherit;
+    font-size: 16px;
+}
+.gate-err {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--orange-ink);
+}

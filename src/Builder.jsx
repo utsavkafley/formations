@@ -163,7 +163,26 @@ export default function Builder({ onNavigate }) {
   const [areas, setAreas] = useState(() => readJSON(AREAS_KEY)); // { id: "ATT" | "DEF" }
   const pitchRef = useRef(null);
 
-  // Load saved guests from localStorage and merge with hardcoded core squad.
+  // Load saved guests from localStorage and merge with the core squad. The
+  // core list comes from the database so anyone an organizer has added shows
+  // up here too — without it a new member could RSVP on the poll and then be
+  // quietly dropped on the way to the teamsheet. The hardcoded list is the
+  // floor while the fetch is in flight or if it fails.
+  const [core, setCore] = useState(CORE_SQUAD);
+  useEffect(() => {
+    let alive = true;
+    store
+      .fetchMembers()
+      .then((ms) => {
+        const live = ms.filter((m) => m.active !== false);
+        if (alive && live.length) setCore(live);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(SQUAD_KEY);
@@ -171,11 +190,11 @@ export default function Builder({ onNavigate }) {
       // Filter out any stale core entries that may have been saved before
       // the hardcoded squad was introduced.
       const guests = parsed.filter((m) => !m.core);
-      setSquad([...CORE_SQUAD, ...guests]);
+      setSquad([...core, ...guests]);
     } catch {
-      setSquad(CORE_SQUAD);
+      setSquad(core);
     }
-  }, []);
+  }, [core]);
 
   // Pre-load from the poll: whoever marked IN (plus their guests) comes in as
   // "coming today" so the organizer just balances and builds.
@@ -193,7 +212,7 @@ export default function Builder({ onNavigate }) {
       const guestMembers = d.guests.map((g) => ({ id: `pg-${g.id}`, name: g.name, core: false }));
       const mk = (id, nm) => ({ id, name: nm, team: null, x: 0.5, y: 0.5, tag: null });
       const coming = [
-        ...CORE_SQUAD.filter((m) => inIds.has(m.id)).map((m) => mk(m.id, m.name)),
+        ...core.filter((m) => inIds.has(m.id)).map((m) => mk(m.id, m.name)),
         ...guestMembers.map((g) => mk(g.id, g.name)),
       ];
       setSquad((s) => {
@@ -208,7 +227,7 @@ export default function Builder({ onNavigate }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [core]);
 
   // Persist form/area tweaks so they carry to next session.
   useEffect(() => {

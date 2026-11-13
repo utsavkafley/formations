@@ -27,6 +27,41 @@ banner on the poll reminds you of this.
 Identity is login-free: each device keeps a random id and the name you pick,
 so your IN/OUT choice sticks to you on return visits.
 
+## 2b. Contributions and the organizer passcode
+
+`/money` shows what the group has put in: the current collection (what it is
+for, the total it needs, the share per head), a meter, and every squad member
+with what they have paid. Everyone can read it — it is linked from the poll,
+top right.
+
+Changing anything needs the **organizer passcode**. The way in is the faint dot
+in the top-right corner of `/money`. **Nobody has set a passcode yet: the first
+person to open that dialog sets it**, so do that yourself the moment this is
+deployed, before you share the link. After that the dialog just asks for it.
+A browser stays signed in for 30 days; tapping **Organizer** signs it out.
+
+An organizer can:
+
+- start a collection and close it, and switch between past ones
+- record a payment against anyone (tap their row), with an optional note
+- add a squad member, and fix a name
+
+**What the passcode is and is not.** It gates the screen, not the database.
+This app has no login and talks to Supabase with the anon key, so the tables
+stay writable by anyone who opens devtools — exactly as the votes always have
+been. What it buys is that thirty-six people see figures they cannot change by
+accident. That is the right size of lock for a football kitty and the wrong one
+for anything that matters to someone outside the group; making it real means
+Supabase Auth accounts and policies keyed on `auth.uid()`. The passcode itself
+is stored as a PBKDF2-SHA256 hash (210k iterations, random salt) rather than a
+bare digest, because the row holding it is world-readable.
+
+The squad also moves into the database with this (`members`, seeded with
+exactly the ids the hardcoded list used, so every vote and rating already
+recorded still points at the right person). `src/squad.js` stays as the
+fallback the app shows while the fetch is in flight, or if Supabase is
+unreachable.
+
 ## 3. Live link previews in group chats
 
 Handled automatically by [`middleware.js`](middleware.js) — a Vercel Edge

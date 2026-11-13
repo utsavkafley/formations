@@ -21,6 +21,7 @@
 //   guests: [ { id, name, hostMemberId, hostName, deviceId } ]
 //   meta:  { time, location, note } | null
 import { createClient } from "@supabase/supabase-js";
+import { CORE_SQUAD } from "./squad.js";
 
 const URL = import.meta.env.VITE_SUPABASE_URL;
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -32,6 +33,35 @@ function uid() {
   if (crypto?.randomUUID) return crypto.randomUUID();
   return "g-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
+
+const today = () => new Date().toISOString().slice(0, 10);
+
+// New members get a generated id rather than `core-<name>`: that prefix belongs
+// to the thirty-six the squad was seeded with, and two people called Sunil
+// would collide on it.
+const memberId = (name) =>
+  `m-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${Math.random()
+    .toString(36)
+    .slice(2, 6)}`;
+
+const asMember = (r) => ({ id: r.id, name: r.name, active: r.active !== false, core: true });
+const asCollection = (r) => ({
+  id: r.id,
+  title: r.title,
+  targetCents: r.target_cents,
+  perPersonCents: r.per_person_cents,
+  note: r.note,
+  openedOn: r.opened_on,
+  closed: Boolean(r.closed),
+});
+const asContribution = (r) => ({
+  id: r.id,
+  collectionId: r.collection_id,
+  memberId: r.member_id,
+  amountCents: r.amount_cents,
+  note: r.note,
+  paidOn: r.paid_on,
+});
 
 /* ------------------------------------------------------------------ *
  * Remote implementation (Supabase)                                    *
@@ -171,6 +201,100 @@ const remote = {
       .subscribe();
     return () => supabase.removeChannel(ch);
   },
+
+  /* ---- Squad, money, settings ---- */
+
+  async fetchMembers() {
+    const { data, error } = await supabase
+      .from("members")
+      .select("*")
+      .order("sort_order")
+      .order("name");
+    if (error) throw new Error(error.message);
+    return (data || []).map(asMember);
+  },
+  async addMember(name) {
+    const row = { id: memberId(name), name: name.trim(), active: true };
+    const { error } = await supabase.from("members").insert(row);
+    if (error) throw new Error(error.message);
+    return asMember(row);
+  },
+  async updateMember(id, patch) {
+    const { error } = await supabase.from("members").update(patch).eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  async fetchCollections() {
+    const { data, error } = await supabase
+      .from("collections")
+      .select("*")
+      .order("opened_on", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(asCollection);
+  },
+  async addCollection({ title, targetCents, perPersonCents, note }) {
+    const row = {
+      id: uid(),
+      title,
+      target_cents: targetCents ?? null,
+      per_person_cents: perPersonCents ?? null,
+      note: note || null,
+    };
+    const { error } = await supabase.from("collections").insert(row);
+    if (error) throw new Error(error.message);
+    return asCollection({ ...row, opened_on: today(), closed: false });
+  },
+  async updateCollection(id, patch) {
+    const { error } = await supabase.from("collections").update(patch).eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+  async removeCollection(id) {
+    const { error } = await supabase.from("collections").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  async fetchContributions(collectionId) {
+    const { data, error } = await supabase
+      .from("contributions")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("paid_on", { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data || []).map(asContribution);
+  },
+  async addContribution({ collectionId, memberId, amountCents, note, paidOn }) {
+    const row = {
+      id: uid(),
+      collection_id: collectionId,
+      member_id: memberId,
+      amount_cents: amountCents,
+      note: note || null,
+      paid_on: paidOn || today(),
+    };
+    const { error } = await supabase.from("contributions").insert(row);
+    if (error) throw new Error(error.message);
+    return asContribution(row);
+  },
+  async removeContribution(id) {
+    const { error } = await supabase.from("contributions").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  async fetchSetting(key) {
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", key)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data?.value ?? null;
+  },
+  async setSetting(key, value) {
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key, value, updated_at: new Date().toISOString() });
+    if (error) throw new Error(error.message);
+  },
 };
 
 /* ------------------------------------------------------------------ *
@@ -178,6 +302,26 @@ const remote = {
  * ------------------------------------------------------------------ */
 const LOCAL_EVT = "yolo-store-change";
 const localKey = (date) => `yolo.game.${date}`;
+const MEMBERS_KEY = "yolo.members.v1";
+const COLLECTIONS_KEY = "yolo.collections.v1";
+const CONTRIB_KEY = "yolo.contributions.v1";
+const SETTINGS_KEY = "yolo.settings.v1";
+
+function readJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private window, quota — the app still runs, it just won't remember */
+  }
+}
 const FEEDBACK_KEY = "yolo.feedback.v1";
 const GAME_PREFIX = "yolo.game.";
 
@@ -281,6 +425,87 @@ const local = {
       window.removeEventListener(LOCAL_EVT, onLocal);
       window.removeEventListener("storage", onStorage);
     };
+  },
+
+  /* ---- Squad, money, settings: same shapes, one device ---- */
+
+  async fetchMembers() {
+    return readJson(MEMBERS_KEY, null) || CORE_SQUAD.map((m) => ({ ...m, active: true }));
+  },
+  async addMember(name) {
+    const list = await local.fetchMembers();
+    const m = { id: memberId(name), name: name.trim(), active: true, core: true };
+    writeJson(MEMBERS_KEY, [...list, m]);
+    return m;
+  },
+  async updateMember(id, patch) {
+    const list = await local.fetchMembers();
+    writeJson(
+      MEMBERS_KEY,
+      list.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+    );
+  },
+
+  async fetchCollections() {
+    return readJson(COLLECTIONS_KEY, []);
+  },
+  async addCollection({ title, targetCents, perPersonCents, note }) {
+    const c = {
+      id: uid(),
+      title,
+      targetCents: targetCents ?? null,
+      perPersonCents: perPersonCents ?? null,
+      note: note || null,
+      openedOn: today(),
+      closed: false,
+    };
+    writeJson(COLLECTIONS_KEY, [c, ...readJson(COLLECTIONS_KEY, [])]);
+    return c;
+  },
+  async updateCollection(id, patch) {
+    writeJson(
+      COLLECTIONS_KEY,
+      readJson(COLLECTIONS_KEY, []).map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    );
+  },
+  async removeCollection(id) {
+    writeJson(
+      COLLECTIONS_KEY,
+      readJson(COLLECTIONS_KEY, []).filter((c) => c.id !== id),
+    );
+    writeJson(
+      CONTRIB_KEY,
+      readJson(CONTRIB_KEY, []).filter((c) => c.collectionId !== id),
+    );
+  },
+
+  async fetchContributions(collectionId) {
+    return readJson(CONTRIB_KEY, []).filter((c) => c.collectionId === collectionId);
+  },
+  async addContribution({ collectionId, memberId: mid, amountCents, note, paidOn }) {
+    const c = {
+      id: uid(),
+      collectionId,
+      memberId: mid,
+      amountCents,
+      note: note || null,
+      paidOn: paidOn || today(),
+    };
+    writeJson(CONTRIB_KEY, [c, ...readJson(CONTRIB_KEY, [])]);
+    return c;
+  },
+  async removeContribution(id) {
+    writeJson(
+      CONTRIB_KEY,
+      readJson(CONTRIB_KEY, []).filter((c) => c.id !== id),
+    );
+  },
+
+  async fetchSetting(key) {
+    return readJson(SETTINGS_KEY, {})[key] ?? null;
+  },
+  async setSetting(key, value) {
+    writeJson(SETTINGS_KEY, { ...readJson(SETTINGS_KEY, {}), [key]: value });
   },
 };
 

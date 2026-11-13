@@ -170,3 +170,35 @@ export function areaGuesses(rows = []) {
   }
   return guess;
 }
+
+/* ------------------------------------------------------------------ *
+ * Choosing who to ask about                                           *
+ * ------------------------------------------------------------------ */
+
+// How badly somebody needs ratings, as a weight rather than a rank.
+//
+// Ranking was the obvious way and it is wrong here, because of WHEN people
+// answer. The link goes into the group chat and a dozen people open it within
+// the same couple of minutes, so every phone fetches the same counts before
+// any of those answers have landed. A rule that picks the single thinnest
+// player hands all of them the same name: simulated over ten players RSVPing
+// at once, nine of the ten asks went to one man while the rest stayed at zero
+// — the opposite of spreading them out.
+//
+// Sampling by weight fixes that without a server telling clients what to do.
+// Thin players are much likelier, nobody is certain, and two phones reading
+// identical counts still land on different names.
+export const askWeight = (recent = 0, lifetime = 0) => 1 / (1 + 3 * recent + 0.25 * lifetime);
+
+export function sampleWeighted(items, weightOf, rnd = Math.random) {
+  if (!items.length) return null;
+  const weights = items.map((it) => Math.max(0, weightOf(it)));
+  const total = weights.reduce((n, w) => n + w, 0);
+  if (!(total > 0)) return items[Math.floor(rnd() * items.length)];
+  let r = rnd() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}

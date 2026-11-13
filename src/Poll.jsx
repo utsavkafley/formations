@@ -16,7 +16,7 @@ import { DEFAULT_KITS } from "./kits.js";
 import Crest from "./Crest.jsx";
 import { CashMark, Shirt, WeatherMark } from "./Glyphs.jsx";
 import { fetchKickoffWeather, matchdayBlurb } from "./weather.js";
-import { recentCounts } from "./rating.js";
+import { recentCounts, askWeight, sampleWeighted } from "./rating.js";
 import { STRENGTHS, STRENGTH_GROUPS } from "./strengths.js";
 
 // Peer ratings are being collected again. What changed along with the flag is
@@ -244,11 +244,10 @@ export default function Poll({ onNavigate }) {
   // nobody can answer honestly, and those answers are what the form column is
   // built from.
   //
-  // Then, among that game's players, whoever the squad has said least about in
-  // the last month, falling back to least overall. Sorting by lifetime count
-  // alone would keep feeding the same long-standing gaps while this month's
-  // record stayed empty for everyone, and it is this month's record the form
-  // column reads.
+  // Then, among that game's players, one drawn at random with the odds tilted
+  // hard toward whoever the squad has said least about this month. Not simply
+  // the thinnest — see askWeight for why picking the minimum backfires when a
+  // dozen people RSVP in the same two minutes off the same stale counts.
   async function pickFeedbackTarget() {
     const games = await store.fetchAttendedGames(me.id, game.date);
     const last = games[0];
@@ -269,13 +268,9 @@ export default function Poll({ onNavigate }) {
       (a) => a.memberId !== me.id && !ratedByMe.has(`${a.memberId}|${last}`),
     );
     if (!eligible.length) return null;
-    eligible.sort(
-      (a, b) =>
-        (recent.get(a.memberId) || 0) - (recent.get(b.memberId) || 0) ||
-        (lifetime[a.memberId] || 0) - (lifetime[b.memberId] || 0) ||
-        Math.random() - 0.5,
+    const pick = sampleWeighted(eligible, (a) =>
+      askWeight(recent.get(a.memberId) || 0, lifetime[a.memberId] || 0),
     );
-    const pick = eligible[0];
     return { subjectId: pick.memberId, subjectName: pick.memberName, gameDate: last };
   }
 
